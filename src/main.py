@@ -147,13 +147,12 @@ if __name__ == "__main__":
     parser.add_argument("--show-reasoning", action="store_true", help="Show reasoning from each agent")
     parser.add_argument("--show-agent-graph", action="store_true", help="Show the agent graph")
     parser.add_argument("--ollama", action="store_true", help="Use Ollama for local LLM inference")
-    parser.add_argument("--showlog", action="store_true", help="Show detailed logs including LLM interactions")
-    parser.add_argument("--savelog", action="store_true", help="Save logs to file instead of showing them")
+    parser.add_argument("--savelog", action="store_true", help="Save detailed logs to file")
 
     args = parser.parse_args()
     
-    # Configure logging based on showlog/savelog parameters
-    configure_logging(show_logs=args.showlog, save_logs=args.savelog)
+    # Configure logging to save logs if requested
+    configure_logging(save_logs=args.savelog)
 
     # Parse tickers from comma-separated string
     tickers = [ticker.strip() for ticker in args.tickers.split(",")]

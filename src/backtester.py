@@ -642,13 +642,12 @@ if __name__ == "__main__":
         help="Margin ratio for short positions, e.g. 0.5 for 50% (default: 0.0)",
     )
     parser.add_argument("--ollama", action="store_true", help="Use Ollama for local LLM inference")
-    parser.add_argument("--showlog", action="store_true", help="Show detailed logs including LLM interactions")
-    parser.add_argument("--savelog", action="store_true", help="Save logs to file instead of showing them")
+    parser.add_argument("--savelog", action="store_true", help="Save detailed logs to file")
 
     args = parser.parse_args()
     
-    # Configure logging based on showlog/savelog parameters
-    configure_logging(show_logs=args.showlog, save_logs=args.savelog)
+    # Configure logging to save logs if requested
+    configure_logging(save_logs=args.savelog)
 
     # Parse tickers from comma-separated string
     tickers = [ticker.strip() for ticker in args.tickers.split(",")] if args.tickers else []
