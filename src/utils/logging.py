@@ -21,24 +21,46 @@ llm_logger.setLevel(logging.INFO)
 portfolio_logger = logging.getLogger("portfolio")
 portfolio_logger.setLevel(logging.INFO)
 
-# Global variable to control whether logs are displayed to console
+# Global variables to control logging behavior
 show_logs_to_console = False
+save_logs_to_file = False
 
-def configure_logging(show_logs: bool = False):
+def configure_logging(show_logs: bool = False, save_logs: bool = False):
     """Configure logging settings
     
     Args:
         show_logs: Whether to display logs to console
+        save_logs: Whether to save logs to file
     """
-    global show_logs_to_console
+    global show_logs_to_console, save_logs_to_file
     show_logs_to_console = show_logs
+    save_logs_to_file = save_logs
     
-    # Set log level based on whether we're showing logs
-    log_level = logging.INFO if show_logs else logging.ERROR
+    # Clear existing handlers
+    logging.root.handlers.clear()
     
-    # Update handler levels
-    for handler in logging.root.handlers:
-        handler.setLevel(log_level)
+    # Create logs directory if it doesn't exist
+    if save_logs:
+        os.makedirs("logs", exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file = f"logs/backtest_{timestamp}.log"
+        
+        # Add file handler
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+        logging.root.addHandler(file_handler)
+        
+        # Disable console output when saving logs
+        if not show_logs:
+            return
+    
+    # Add console handler if showing logs
+    if show_logs:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(logging.INFO if show_logs else logging.ERROR)
+        console_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+        logging.root.addHandler(console_handler)
 
 def log_llm_interaction(
     model_name: str, 
@@ -58,7 +80,7 @@ def log_llm_interaction(
         agent_name: Optional name of the agent making the request
         error: Optional exception if an error occurred
     """
-    if not show_logs_to_console:
+    if not (show_logs_to_console or save_logs_to_file):
         return
     
     agent_info = f" by {agent_name}" if agent_name else ""
@@ -67,9 +89,17 @@ def log_llm_interaction(
         llm_logger.error(f"LLM Error with {model_provider} {model_name}{agent_info}: {error}")
         return
     
-    llm_logger.info(f"LLM Request to {model_provider} {model_name}{agent_info}")
-    llm_logger.info(f"Prompt: {truncate_str(str(prompt), 500)}")
-    llm_logger.info(f"Response: {truncate_str(str(response), 500)}")
+    # For file logging - full content with newlines
+    if save_logs_to_file:
+        llm_logger.info(f"LLM Request to {model_provider} {model_name}{agent_info}")
+        llm_logger.info(f"Full Prompt:\n{str(prompt)}\n")
+        llm_logger.info(f"Full Response:\n{str(response)}\n")
+    
+    # For console - truncated if showing logs
+    if show_logs_to_console:
+        llm_logger.info(f"LLM Request to {model_provider} {model_name}{agent_info}")
+        llm_logger.info(f"Prompt: {truncate_str(str(prompt), 500)}")
+        llm_logger.info(f"Response: {truncate_str(str(response), 500)}")
 
 def log_portfolio_error(error_message: str, ticker: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
     """Log portfolio management errors
@@ -96,4 +126,4 @@ def truncate_str(s: str, max_length: int = 100) -> str:
     """
     if len(s) <= max_length:
         return s
-    return s[:max_length] + "..." 
+    return s[:max_length] + "..."
