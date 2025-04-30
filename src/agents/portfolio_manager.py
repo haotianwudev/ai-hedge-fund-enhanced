@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from typing_extensions import Literal
 from utils.progress import progress
 from utils.llm import call_llm
+from utils.logging import log_portfolio_error
 
 
 class PortfolioDecision(BaseModel):

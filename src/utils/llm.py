@@ -4,6 +4,7 @@ import json
 from typing import TypeVar, Type, Optional, Any
 from pydantic import BaseModel
 from utils.progress import progress
+from utils.logging import log_llm_interaction
 
 T = TypeVar('T', bound=BaseModel)
 
@@ -53,13 +54,39 @@ def call_llm(
             if model_info and not model_info.has_json_mode():
                 parsed_result = extract_json_from_response(result.content)
                 if parsed_result:
+                    # Log the successful interaction
+                    log_llm_interaction(
+                        model_name=model_name,
+                        model_provider=model_provider,
+                        prompt=prompt,
+                        response=result.content,
+                        agent_name=agent_name
+                    )
                     return pydantic_model(**parsed_result)
             else:
+                # Log the successful interaction
+                log_llm_interaction(
+                    model_name=model_name,
+                    model_provider=model_provider,
+                    prompt=prompt,
+                    response=result,
+                    agent_name=agent_name
+                )
                 return result
                 
         except Exception as e:
             if agent_name:
                 progress.update_status(agent_name, None, f"Error - retry {attempt + 1}/{max_retries}")
+            
+            # Log the error
+            log_llm_interaction(
+                model_name=model_name,
+                model_provider=model_provider,
+                prompt=prompt,
+                response=None,
+                agent_name=agent_name,
+                error=e
+            )
             
             if attempt == max_retries - 1:
                 print(f"Error in LLM call after {max_retries} attempts: {e}")

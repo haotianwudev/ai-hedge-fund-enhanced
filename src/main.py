@@ -13,6 +13,7 @@ from utils.analysts import ANALYST_ORDER, get_analyst_nodes
 from utils.progress import progress
 from llm.models import LLM_ORDER, OLLAMA_LLM_ORDER, get_model_info, ModelProvider
 from utils.ollama import ensure_ollama_and_model
+from utils.logging import configure_logging
 
 import argparse
 from datetime import datetime
@@ -146,8 +147,12 @@ if __name__ == "__main__":
     parser.add_argument("--show-reasoning", action="store_true", help="Show reasoning from each agent")
     parser.add_argument("--show-agent-graph", action="store_true", help="Show the agent graph")
     parser.add_argument("--ollama", action="store_true", help="Use Ollama for local LLM inference")
+    parser.add_argument("--showlog", action="store_true", help="Show detailed logs including LLM interactions")
 
     args = parser.parse_args()
+    
+    # Configure logging based on showlog parameter
+    configure_logging(show_logs=args.showlog)
 
     # Parse tickers from comma-separated string
     tickers = [ticker.strip() for ticker in args.tickers.split(",")]
