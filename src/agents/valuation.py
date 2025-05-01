@@ -12,10 +12,8 @@ from langchain_core.messages import HumanMessage
 from graph.state import AgentState, show_agent_reasoning
 from utils.progress import progress
 
-from tools.api import (
-    get_financial_metrics,
-    search_line_items,
-)
+from tools.financial_metrics_service import get_financial_metrics
+from tools.line_items_service import search_line_items
 from tools.company_facts_service import get_market_cap
 
 def valuation_agent(state: AgentState):
@@ -31,6 +29,8 @@ def valuation_agent(state: AgentState):
         progress.update_status("valuation_agent", ticker, "Fetching financial data")
 
         # --- Historical financial metrics (pull 8 latest TTM snapshots for medians) ---
+        # Using financial metrics service
+
         financial_metrics = get_financial_metrics(
             ticker=ticker,
             end_date=end_date,
@@ -44,6 +44,8 @@ def valuation_agent(state: AgentState):
 
         # --- Fine‑grained line‑items (need two periods to calc WC change) ---
         progress.update_status("valuation_agent", ticker, "Gathering line items")
+        # Using line items service
+
         line_items = search_line_items(
             ticker=ticker,
             line_items=[

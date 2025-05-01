@@ -13,12 +13,11 @@ import itertools
 from llm.models import LLM_ORDER, OLLAMA_LLM_ORDER, get_model_info, ModelProvider
 from utils.analysts import ANALYST_ORDER
 from main import run_hedge_fund
-from tools.api import (
-    get_company_news,
-    get_financial_metrics,
-    get_insider_trades,
-)
 from tools.price_service import get_prices, get_price_data
+from tools.financial_metrics_service import get_financial_metrics, get_financial_metrics_df
+from tools.company_news_service import get_company_news, get_company_news_df
+from tools.insider_trades_service import get_insider_trades, get_insider_trades_df
+from tools.line_items_service import search_line_items, get_line_items_df
 from utils.display import print_backtest_results, format_backtest_row
 from typing_extensions import Callable
 from utils.ollama import ensure_ollama_and_model
@@ -284,15 +283,21 @@ class Backtester:
 
             # Fetch financial metrics
             print(f"Fetching financial metrics for {ticker}...")
-            get_financial_metrics(ticker, self.end_date, limit=10)
+            metrics = get_financial_metrics(ticker, self.end_date, limit=10)
+            if metrics:
+                print(f"Found {len(metrics)} financial metrics records for {ticker}")
 
             # Fetch insider trades
             print(f"Fetching insider trades for {ticker}...")
-            get_insider_trades(ticker, self.end_date, start_date=self.start_date, limit=1000)
+            trades = get_insider_trades(ticker, self.end_date, start_date=self.start_date, limit=1000)
+            if trades:
+                print(f"Found {len(trades)} insider trades for {ticker}")
 
             # Fetch company news
             print(f"Fetching company news for {ticker}...")
-            get_company_news(ticker, self.end_date, start_date=self.start_date, limit=1000)
+            news = get_company_news(ticker, self.end_date, start_date=self.start_date, limit=1000)
+            if news:
+                print(f"Found {len(news)} news items for {ticker}")
 
         print("Data pre-fetch complete.")
 
@@ -634,7 +639,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--start-date",
         type=str,
-        default=(datetime.now() - relativedelta(months=1)).strftime("%Y-%m-%d"),
+        default=(datetime.now() - relativedelta(days=5)).strftime("%Y-%m-%d"),
         help="Start date in YYYY-MM-DD format",
     )
     parser.add_argument(

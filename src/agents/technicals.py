@@ -5,7 +5,7 @@ import json
 from colorama import Fore, Style
 from langchain_core.messages import HumanMessage
 from tools.price_service import get_prices
-from tools.api import prices_to_df
+from tools.price_service import prices_to_df
 from graph.state import AgentState, show_agent_reasoning
 from utils.progress import progress
 

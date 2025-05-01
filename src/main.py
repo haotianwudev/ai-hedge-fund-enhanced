@@ -15,8 +15,12 @@ from llm.models import LLM_ORDER, OLLAMA_LLM_ORDER, get_model_info, ModelProvide
 from utils.ollama import ensure_ollama_and_model
 from utils.logging import configure_logging
 
-# Import the price service instead of direct API functions
+# Import the services instead of direct API functions
 from tools.price_service import get_prices, get_price_data
+from tools.financial_metrics_service import get_financial_metrics, get_financial_metrics_df
+from tools.company_news_service import get_company_news, get_company_news_df
+from tools.insider_trades_service import get_insider_trades, get_insider_trades_df
+from tools.line_items_service import search_line_items, get_line_items_df
 
 import argparse
 from datetime import datetime

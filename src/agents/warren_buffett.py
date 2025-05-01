@@ -4,7 +4,8 @@ from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 import json
 from typing_extensions import Literal
-from tools.api import get_financial_metrics, search_line_items
+from tools.financial_metrics_service import get_financial_metrics
+from tools.line_items_service import search_line_items
 from tools.company_facts_service import get_market_cap
 from utils.llm import call_llm
 from utils.progress import progress
@@ -28,7 +29,7 @@ def warren_buffett_agent(state: AgentState):
 
     for ticker in tickers:
         progress.update_status("warren_buffett_agent", ticker, "Fetching financial metrics")
-        # Fetch required data
+        # Fetch required data using service
         metrics = get_financial_metrics(ticker, end_date, period="ttm", limit=5)
 
         progress.update_status("warren_buffett_agent", ticker, "Gathering financial line items")

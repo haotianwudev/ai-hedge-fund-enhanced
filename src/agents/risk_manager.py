@@ -2,7 +2,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from graph.state import AgentState, show_agent_reasoning
 from utils.progress import progress
 from tools.price_service import get_prices
-from tools.api import prices_to_df
+from tools.price_service import prices_to_df
 import json
 
 

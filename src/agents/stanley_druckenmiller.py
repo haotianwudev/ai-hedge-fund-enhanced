@@ -1,10 +1,8 @@
 from graph.state import AgentState, show_agent_reasoning
-from tools.api import (
-    get_financial_metrics,
-    search_line_items,
-    get_insider_trades,
-    get_company_news,
-)
+from tools.financial_metrics_service import get_financial_metrics
+from tools.line_items_service import search_line_items
+from tools.insider_trades_service import get_insider_trades
+from tools.company_news_service import get_company_news
 from tools.company_facts_service import get_market_cap
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import HumanMessage
@@ -43,6 +41,8 @@ def stanley_druckenmiller_agent(state: AgentState):
 
     for ticker in tickers:
         progress.update_status("stanley_druckenmiller_agent", ticker, "Fetching financial metrics")
+        # Using financial metrics service
+
         metrics = get_financial_metrics(ticker, end_date, period="annual", limit=5)
 
         progress.update_status("stanley_druckenmiller_agent", ticker, "Gathering financial line items")
@@ -51,6 +51,8 @@ def stanley_druckenmiller_agent(state: AgentState):
         #   - Valuation: net_income, free_cash_flow, ebit, ebitda
         #   - Leverage: total_debt, shareholders_equity
         #   - Liquidity: cash_and_equivalents
+        # Using line items service
+
         financial_line_items = search_line_items(
             ticker,
             [
@@ -78,9 +80,13 @@ def stanley_druckenmiller_agent(state: AgentState):
         market_cap = get_market_cap(ticker, end_date)
 
         progress.update_status("stanley_druckenmiller_agent", ticker, "Fetching insider trades")
+        # Using insider trades service
+
         insider_trades = get_insider_trades(ticker, end_date, start_date=None, limit=50)
 
         progress.update_status("stanley_druckenmiller_agent", ticker, "Fetching company news")
+        # Using company news service
+
         company_news = get_company_news(ticker, end_date, start_date=None, limit=50)
 
         progress.update_status("stanley_druckenmiller_agent", ticker, "Fetching recent price data for momentum")

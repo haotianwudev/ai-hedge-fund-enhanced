@@ -89,6 +89,10 @@ def get_prices(ticker: str, start_date: str, end_date: str) -> list[Price]:
     """Get prices for the given ticker and date range."""
     return price_service.get_prices(ticker, start_date, end_date)
 
+def prices_to_df(prices: list[Price]) -> 'pd.DataFrame':
+    """Convert prices to a DataFrame."""
+    return price_service.prices_to_df(prices)
+
 def get_price_data(ticker: str, start_date: str, end_date: str) -> 'pd.DataFrame':
     """Get price data as a DataFrame."""
     return price_service.get_price_data(ticker, start_date, end_date) 

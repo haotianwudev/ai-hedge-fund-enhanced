@@ -5,7 +5,8 @@ import pandas as pd
 import numpy as np
 import json
 
-from tools.api import get_insider_trades, get_company_news
+from tools.insider_trades_service import get_insider_trades
+from tools.company_news_service import get_company_news
 
 
 ##### Sentiment Agent #####
@@ -21,7 +22,7 @@ def sentiment_agent(state: AgentState):
     for ticker in tickers:
         progress.update_status("sentiment_agent", ticker, "Fetching insider trades")
 
-        # Get the insider trades
+        # Get the insider trades using the service
         insider_trades = get_insider_trades(
             ticker=ticker,
             end_date=end_date,
@@ -36,7 +37,7 @@ def sentiment_agent(state: AgentState):
 
         progress.update_status("sentiment_agent", ticker, "Fetching company news")
 
-        # Get the company news
+        # Get the company news using the service
         company_news = get_company_news(ticker, end_date, limit=100)
 
         # Get the sentiment from the company news

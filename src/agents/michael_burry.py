@@ -9,12 +9,10 @@ from langchain_core.messages import HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
-from tools.api import (
-    get_company_news,
-    get_financial_metrics,
-    get_insider_trades,
-    search_line_items,
-)
+from tools.company_news_service import get_company_news
+from tools.financial_metrics_service import get_financial_metrics
+from tools.insider_trades_service import get_insider_trades
+from tools.line_items_service import search_line_items
 from tools.company_facts_service import get_market_cap
 from utils.llm import call_llm
 from utils.progress import progress
@@ -60,9 +58,13 @@ def michael_burry_agent(state: AgentState):  # noqa: C901  (complexity is fine h
         # Fetch raw data
         # ------------------------------------------------------------------
         progress.update_status("michael_burry_agent", ticker, "Fetching financial metrics")
+        # Using financial metrics service
+
         metrics = get_financial_metrics(ticker, end_date, period="ttm", limit=5)
 
         progress.update_status("michael_burry_agent", ticker, "Fetching line items")
+        # Using line items service
+
         line_items = search_line_items(
             ticker,
             [
@@ -79,9 +81,13 @@ def michael_burry_agent(state: AgentState):  # noqa: C901  (complexity is fine h
         )
 
         progress.update_status("michael_burry_agent", ticker, "Fetching insider trades")
+        # Using insider trades service
+
         insider_trades = get_insider_trades(ticker, end_date=end_date, start_date=start_date)
 
         progress.update_status("michael_burry_agent", ticker, "Fetching company news")
+        # Using company news service
+
         news = get_company_news(ticker, end_date=end_date, start_date=start_date, limit=250)
 
         progress.update_status("michael_burry_agent", ticker, "Fetching market cap")

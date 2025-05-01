@@ -1,5 +1,8 @@
 from graph.state import AgentState, show_agent_reasoning
-from tools.api import get_financial_metrics, search_line_items, get_insider_trades, get_company_news
+from tools.financial_metrics_service import get_financial_metrics
+from tools.line_items_service import search_line_items
+from tools.insider_trades_service import get_insider_trades
+from tools.company_news_service import get_company_news
 from tools.company_facts_service import get_market_cap
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import HumanMessage
@@ -29,9 +32,13 @@ def charlie_munger_agent(state: AgentState):
     
     for ticker in tickers:
         progress.update_status("charlie_munger_agent", ticker, "Fetching financial metrics")
+        # Using financial metrics service
+
         metrics = get_financial_metrics(ticker, end_date, period="annual", limit=10)  # Munger looks at longer periods
         
         progress.update_status("charlie_munger_agent", ticker, "Gathering financial line items")
+        # Using line items service
+
         financial_line_items = search_line_items(
             ticker,
             [
@@ -60,6 +67,8 @@ def charlie_munger_agent(state: AgentState):
         
         progress.update_status("charlie_munger_agent", ticker, "Fetching insider trades")
         # Munger values management with skin in the game
+        # Using insider trades service
+
         insider_trades = get_insider_trades(
             ticker,
             end_date,
@@ -70,6 +79,8 @@ def charlie_munger_agent(state: AgentState):
         
         progress.update_status("charlie_munger_agent", ticker, "Fetching company news")
         # Munger avoids businesses with frequent negative press
+        # Using company news service
+
         company_news = get_company_news(
             ticker,
             end_date,

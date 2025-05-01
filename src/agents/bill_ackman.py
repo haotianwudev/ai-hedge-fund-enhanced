@@ -1,6 +1,7 @@
 from langchain_openai import ChatOpenAI
 from graph.state import AgentState, show_agent_reasoning
-from tools.api import get_financial_metrics, search_line_items
+from tools.financial_metrics_service import get_financial_metrics
+from tools.line_items_service import search_line_items
 from tools.company_facts_service import get_market_cap
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import HumanMessage
@@ -32,10 +33,14 @@ def bill_ackman_agent(state: AgentState):
     
     for ticker in tickers:
         progress.update_status("bill_ackman_agent", ticker, "Fetching financial metrics")
+        # Using financial metrics service
+
         metrics = get_financial_metrics(ticker, end_date, period="annual", limit=5)
         
         progress.update_status("bill_ackman_agent", ticker, "Gathering financial line items")
         # Request multiple periods of data (annual or TTM) for a more robust long-term view.
+        # Using line items service
+
         financial_line_items = search_line_items(
             ticker,
             [
