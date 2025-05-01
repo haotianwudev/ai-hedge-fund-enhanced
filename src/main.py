@@ -15,6 +15,9 @@ from llm.models import LLM_ORDER, OLLAMA_LLM_ORDER, get_model_info, ModelProvide
 from utils.ollama import ensure_ollama_and_model
 from utils.logging import configure_logging
 
+# Import the price service instead of direct API functions
+from tools.price_service import get_prices, get_price_data
+
 import argparse
 from datetime import datetime
 from dateutil.relativedelta import relativedelta

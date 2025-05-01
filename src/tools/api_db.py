@@ -7,7 +7,7 @@ import os
 import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from src.data.models import CompanyFacts
+from src.data.models import CompanyFacts, Price
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -137,4 +137,106 @@ def save_company_facts(company_facts: CompanyFacts) -> bool:
         
     except Exception as e:
         print(f"Error saving company facts to database: {e}")
+        return False
+
+def get_prices_db(ticker: str, start_date: str, end_date: str) -> list[Price] | None:
+    """Fetch price data from the PostgreSQL database for a specific date range."""
+    try:
+        # Connect to PostgreSQL
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Query the database
+        cursor.execute(
+            "SELECT * FROM prices WHERE ticker = %s AND biz_date >= %s AND biz_date <= %s ORDER BY time DESC", 
+            (ticker, start_date, end_date)
+        )
+        results = cursor.fetchall()
+        
+        # Close cursor and connection
+        cursor.close()
+        conn.close()
+        
+        # Return None if no data found
+        if not results:
+            return None
+        
+        # Format dates and convert to Price objects
+        prices = []
+        for result in results:
+            # Convert datetime to ISO format string
+            result['time'] = result['time'].isoformat()
+            # Create a Price object
+            prices.append(Price(**{
+                'open': float(result['open']),
+                'close': float(result['close']),
+                'high': float(result['high']),
+                'low': float(result['low']),
+                'volume': int(result['volume']),
+                'time': result['time']
+            }))
+        
+        return prices
+        
+    except Exception as e:
+        print(f"Error fetching price data from database: {e}")
+        return None
+
+def save_prices(ticker: str, prices: list[Price]) -> bool:
+    """Save price data to the PostgreSQL database."""
+    if not prices:
+        return False
+        
+    try:
+        # Connect to PostgreSQL
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Insert records
+        insert_count = 0
+        for price in prices:
+            try:
+                # Extract date from time for biz_date
+                time_obj = datetime.datetime.fromisoformat(price.time.replace('Z', '+00:00'))
+                biz_date = time_obj.date()
+                
+                sql = """
+                INSERT INTO prices (ticker, time, biz_date, open, close, high, low, volume)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (ticker, biz_date) DO UPDATE SET
+                    time = EXCLUDED.time,
+                    open = EXCLUDED.open,
+                    close = EXCLUDED.close,
+                    high = EXCLUDED.high,
+                    low = EXCLUDED.low,
+                    volume = EXCLUDED.volume,
+                    updated_at = CURRENT_TIMESTAMP
+                """
+                
+                cursor.execute(sql, (
+                    ticker,
+                    price.time,
+                    biz_date,
+                    price.open,
+                    price.close,
+                    price.high,
+                    price.low,
+                    price.volume
+                ))
+                insert_count += 1
+            except Exception as inner_e:
+                print(f"Error inserting price for {ticker} on {price.time}: {inner_e}")
+        
+        # Commit the transaction
+        conn.commit()
+        
+        # Close cursor and connection
+        cursor.close()
+        conn.close()
+        
+        print(f"Successfully saved {insert_count} price records for {ticker}")
+        return True
+        
+    except Exception as e:
+        print(f"Error saving price data to database: {e}")
         return False 
