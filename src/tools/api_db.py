@@ -7,7 +7,7 @@ import os
 import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from src.data.models import CompanyFacts, Price
+from src.data.models import CompanyFacts, Price, FinancialMetrics, LineItem, InsiderTrade, CompanyNews
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -231,4 +231,535 @@ def save_prices(ticker: str, prices: list[Price]) -> bool:
         
     except Exception as e:
         print(f"Error saving price data to database: {e}")
+        return False
+
+def get_financial_metrics_db(
+    ticker: str, 
+    end_date: str, 
+    period: str = "ttm", 
+    limit: int = 10
+) -> list[FinancialMetrics] | None:
+    """
+    Fetch financial metrics from the PostgreSQL database.
+    
+    Args:
+        ticker: The stock ticker symbol
+        end_date: The end date for filtering metrics (only metrics with report_period <= end_date)
+        period: The reporting period (e.g., "ttm", "annual", "quarterly")
+        limit: Maximum number of records to return
+        
+    Returns:
+        A list of FinancialMetrics objects or None if not found
+    """
+    try:
+        # Connect to PostgreSQL
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Query the database
+        cursor.execute(
+            """
+            SELECT * FROM financial_metrics 
+            WHERE ticker = %s 
+              AND report_period <= %s 
+              AND period = %s 
+            ORDER BY report_period DESC 
+            LIMIT %s
+            """, 
+            (ticker, end_date, period, limit)
+        )
+        results = cursor.fetchall()
+        
+        # Close cursor and connection
+        cursor.close()
+        conn.close()
+        
+        # Return None if no data found
+        if not results:
+            return None
+        
+        # Convert to FinancialMetrics objects
+        metrics = []
+        for result in results:
+            # Convert dates to string format
+            result['report_period'] = result['report_period'].isoformat()
+            
+            # Create a FinancialMetrics object
+            metrics.append(FinancialMetrics(**result))
+        
+        return metrics
+        
+    except Exception as e:
+        print(f"Error fetching financial metrics from database: {e}")
+        return None
+
+def save_financial_metrics(metrics: list[FinancialMetrics]) -> bool:
+    """
+    Save financial metrics to the PostgreSQL database.
+    
+    Args:
+        metrics: A list of FinancialMetrics objects to save
+        
+    Returns:
+        Boolean indicating success or failure
+    """
+    if not metrics:
+        return False
+        
+    try:
+        # Connect to PostgreSQL
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Insert records
+        insert_count = 0
+        for metric in metrics:
+            try:
+                data = metric.model_dump()
+                
+                # Build field lists
+                fields = list(data.keys())
+                
+                # Generate placeholders
+                placeholders = ', '.join(['%s'] * len(fields))
+                fields_str = ', '.join(fields)
+                update_fields = ', '.join([f"{field} = EXCLUDED.{field}" for field in fields])
+                update_fields += ", updated_at = CURRENT_TIMESTAMP"
+                
+                # Build SQL query
+                sql = f"""
+                INSERT INTO financial_metrics ({fields_str})
+                VALUES ({placeholders})
+                ON CONFLICT (ticker, report_period, period) DO UPDATE SET {update_fields}
+                """
+                
+                # Execute query
+                cursor.execute(sql, [data[field] for field in fields])
+                insert_count += 1
+                
+            except Exception as inner_e:
+                print(f"Error inserting financial metrics for {metric.ticker} on {metric.report_period}: {inner_e}")
+        
+        # Commit the transaction
+        conn.commit()
+        
+        # Close cursor and connection
+        cursor.close()
+        conn.close()
+        
+        print(f"Successfully saved {insert_count} financial metrics records")
+        return True
+        
+    except Exception as e:
+        print(f"Error saving financial metrics to database: {e}")
+        return False
+
+def get_line_items_db(
+    ticker: str,
+    line_items: list[str],
+    end_date: str,
+    period: str = "ttm",
+    limit: int = 10,
+) -> list[LineItem] | None:
+    """
+    Fetch line items from the PostgreSQL database.
+    
+    Args:
+        ticker: The stock ticker symbol
+        line_items: List of line item names to fetch
+        end_date: The end date for filtering line items
+        period: The reporting period (e.g., "ttm", "annual", "quarterly")
+        limit: Maximum number of records to return
+        
+    Returns:
+        A list of LineItem objects or None if not found
+    """
+    try:
+        # Connect to PostgreSQL
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Build the SQL query with line_items as a list
+        items_list = "', '".join(line_items)
+        
+        # Query the database
+        cursor.execute(
+            f"""
+            SELECT ticker, report_period, period, currency, line_item_name, line_item_value 
+            FROM line_items 
+            WHERE ticker = %s 
+              AND report_period <= %s 
+              AND period = %s
+              AND line_item_name IN ('{items_list}')
+            ORDER BY report_period DESC, line_item_name
+            LIMIT %s
+            """, 
+            (ticker, end_date, period, limit)
+        )
+        results = cursor.fetchall()
+        
+        # Close cursor and connection
+        cursor.close()
+        conn.close()
+        
+        # Return None if no data found
+        if not results:
+            return None
+        
+        # Group results by report_period to create LineItem objects
+        grouped_results = {}
+        for result in results:
+            # Convert date to string format
+            report_period = result['report_period'].isoformat()
+            
+            # Initialize the group if it doesn't exist
+            if report_period not in grouped_results:
+                grouped_results[report_period] = {
+                    'ticker': result['ticker'],
+                    'report_period': report_period,
+                    'period': result['period'],
+                    'currency': result['currency']
+                }
+            
+            # Add the line item value to the group
+            grouped_results[report_period][result['line_item_name']] = result['line_item_value']
+        
+        # Convert grouped results to LineItem objects
+        line_items_objects = []
+        for data in grouped_results.values():
+            line_items_objects.append(LineItem(**data))
+        
+        # Sort by report_period in descending order
+        line_items_objects.sort(key=lambda x: x.report_period, reverse=True)
+        
+        return line_items_objects
+        
+    except Exception as e:
+        print(f"Error fetching line items from database: {e}")
+        return None
+
+def save_line_items(ticker: str, line_items: list[LineItem]) -> bool:
+    """
+    Save line items to the PostgreSQL database.
+    
+    Args:
+        ticker: The stock ticker symbol
+        line_items: List of LineItem objects to save
+        
+    Returns:
+        Boolean indicating success or failure
+    """
+    if not line_items:
+        return False
+        
+    try:
+        # Connect to PostgreSQL
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Insert records
+        insert_count = 0
+        for item in line_items:
+            try:
+                data = item.model_dump()
+                
+                # Extract standard fields
+                std_fields = {
+                    'ticker': data.get('ticker', ticker),  # Use provided ticker if not in item
+                    'report_period': data.get('report_period'),
+                    'period': data.get('period'),
+                    'currency': data.get('currency')
+                }
+                
+                # Process the remaining fields as line items
+                # Each field (except std_fields) becomes a separate row
+                for field_name, field_value in data.items():
+                    if field_name in std_fields:
+                        continue  # Skip standard fields
+                        
+                    # Insert line item
+                    sql = """
+                    INSERT INTO line_items 
+                    (ticker, report_period, period, currency, line_item_name, line_item_value)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (ticker, report_period, period, line_item_name) DO UPDATE SET
+                        line_item_value = EXCLUDED.line_item_value,
+                        updated_at = CURRENT_TIMESTAMP
+                    """
+                    
+                    cursor.execute(sql, (
+                        std_fields['ticker'],
+                        std_fields['report_period'],
+                        std_fields['period'],
+                        std_fields['currency'],
+                        field_name,
+                        field_value
+                    ))
+                    insert_count += 1
+                    
+            except Exception as inner_e:
+                print(f"Error inserting line items for {ticker} on {item.report_period}: {inner_e}")
+        
+        # Commit the transaction
+        conn.commit()
+        
+        # Close cursor and connection
+        cursor.close()
+        conn.close()
+        
+        print(f"Successfully saved {insert_count} line items records")
+        return True
+        
+    except Exception as e:
+        print(f"Error saving line items to database: {e}")
+        return False
+
+def get_insider_trades_db(
+    ticker: str,
+    end_date: str,
+    start_date: str | None = None,
+    limit: int = 1000,
+) -> list[InsiderTrade] | None:
+    """
+    Fetch insider trades from the PostgreSQL database.
+    
+    Args:
+        ticker: The stock ticker symbol
+        end_date: The end date for filtering trades
+        start_date: Optional start date for filtering trades
+        limit: Maximum number of records to return
+        
+    Returns:
+        A list of InsiderTrade objects or None if not found
+    """
+    try:
+        # Connect to PostgreSQL
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Build the SQL query
+        sql = """
+        SELECT * FROM insider_trades
+        WHERE ticker = %s AND filing_date <= %s
+        """
+        params = [ticker, end_date]
+        
+        if start_date:
+            sql += " AND filing_date >= %s"
+            params.append(start_date)
+            
+        sql += " ORDER BY filing_date DESC LIMIT %s"
+        params.append(limit)
+        
+        # Query the database
+        cursor.execute(sql, params)
+        results = cursor.fetchall()
+        
+        # Close cursor and connection
+        cursor.close()
+        conn.close()
+        
+        # Return None if no data found
+        if not results:
+            return None
+        
+        # Convert to InsiderTrade objects
+        trades = []
+        for result in results:
+            # Convert dates to string format
+            if result.get('transaction_date'):
+                result['transaction_date'] = result['transaction_date'].isoformat()
+            result['filing_date'] = result['filing_date'].isoformat()
+            
+            # Create an InsiderTrade object
+            trades.append(InsiderTrade(**result))
+        
+        return trades
+        
+    except Exception as e:
+        print(f"Error fetching insider trades from database: {e}")
+        return None
+
+def save_insider_trades(trades: list[InsiderTrade]) -> bool:
+    """
+    Save insider trades to the PostgreSQL database.
+    
+    Args:
+        trades: List of InsiderTrade objects to save
+        
+    Returns:
+        Boolean indicating success or failure
+    """
+    if not trades:
+        return False
+        
+    try:
+        # Connect to PostgreSQL
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Insert records
+        insert_count = 0
+        for trade in trades:
+            try:
+                data = trade.model_dump()
+                
+                # Build field lists
+                fields = list(data.keys())
+                
+                # Generate placeholders
+                placeholders = ', '.join(['%s'] * len(fields))
+                fields_str = ', '.join(fields)
+                
+                # Build SQL query - we don't use ON CONFLICT here since trades might be amended
+                # and the filing date is more important as a primary key
+                sql = f"""
+                INSERT INTO insider_trades ({fields_str})
+                VALUES ({placeholders})
+                """
+                
+                # Execute query
+                cursor.execute(sql, [data[field] for field in fields])
+                insert_count += 1
+                
+            except Exception as inner_e:
+                print(f"Error inserting insider trade for {trade.ticker} on {trade.filing_date}: {inner_e}")
+        
+        # Commit the transaction
+        conn.commit()
+        
+        # Close cursor and connection
+        cursor.close()
+        conn.close()
+        
+        print(f"Successfully saved {insert_count} insider trade records")
+        return True
+        
+    except Exception as e:
+        print(f"Error saving insider trades to database: {e}")
+        return False
+
+def get_company_news_db(
+    ticker: str,
+    end_date: str,
+    start_date: str | None = None,
+    limit: int = 1000,
+) -> list[CompanyNews] | None:
+    """
+    Fetch company news from the PostgreSQL database.
+    
+    Args:
+        ticker: The stock ticker symbol
+        end_date: The end date for filtering news
+        start_date: Optional start date for filtering news
+        limit: Maximum number of records to return
+        
+    Returns:
+        A list of CompanyNews objects or None if not found
+    """
+    try:
+        # Connect to PostgreSQL
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Build the SQL query
+        sql = """
+        SELECT * FROM company_news
+        WHERE ticker = %s AND date <= %s
+        """
+        params = [ticker, end_date]
+        
+        if start_date:
+            sql += " AND date >= %s"
+            params.append(start_date)
+            
+        sql += " ORDER BY date DESC LIMIT %s"
+        params.append(limit)
+        
+        # Query the database
+        cursor.execute(sql, params)
+        results = cursor.fetchall()
+        
+        # Close cursor and connection
+        cursor.close()
+        conn.close()
+        
+        # Return None if no data found
+        if not results:
+            return None
+        
+        # Convert to CompanyNews objects
+        news_list = []
+        for result in results:
+            # Convert date to string format
+            result['date'] = result['date'].isoformat()
+            
+            # Create a CompanyNews object
+            news_list.append(CompanyNews(**result))
+        
+        return news_list
+        
+    except Exception as e:
+        print(f"Error fetching company news from database: {e}")
+        return None
+
+def save_company_news(news_list: list[CompanyNews]) -> bool:
+    """
+    Save company news to the PostgreSQL database.
+    
+    Args:
+        news_list: List of CompanyNews objects to save
+        
+    Returns:
+        Boolean indicating success or failure
+    """
+    if not news_list:
+        return False
+        
+    try:
+        # Connect to PostgreSQL
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Insert records
+        insert_count = 0
+        for news in news_list:
+            try:
+                data = news.model_dump()
+                
+                # Build field lists
+                fields = list(data.keys())
+                
+                # Generate placeholders
+                placeholders = ', '.join(['%s'] * len(fields))
+                fields_str = ', '.join(fields)
+                update_fields = ', '.join([f"{field} = EXCLUDED.{field}" for field in fields])
+                update_fields += ", updated_at = CURRENT_TIMESTAMP"
+                
+                # Build SQL query
+                sql = f"""
+                INSERT INTO company_news ({fields_str})
+                VALUES ({placeholders})
+                ON CONFLICT (ticker, url) DO UPDATE SET {update_fields}
+                """
+                
+                # Execute query
+                cursor.execute(sql, [data[field] for field in fields])
+                insert_count += 1
+                
+            except Exception as inner_e:
+                print(f"Error inserting company news for {news.ticker} on {news.date}: {inner_e}")
+        
+        # Commit the transaction
+        conn.commit()
+        
+        # Close cursor and connection
+        cursor.close()
+        conn.close()
+        
+        print(f"Successfully saved {insert_count} company news records")
+        return True
+        
+    except Exception as e:
+        print(f"Error saving company news to database: {e}")
         return False 
