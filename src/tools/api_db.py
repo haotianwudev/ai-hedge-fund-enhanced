@@ -600,6 +600,9 @@ def save_insider_trades(trades: list[InsiderTrade]) -> bool:
         
         # Insert records
         insert_count = 0
+        error_count = 0
+        last_error = None
+        
         for trade in trades:
             try:
                 data = trade.model_dump()
@@ -611,32 +614,41 @@ def save_insider_trades(trades: list[InsiderTrade]) -> bool:
                 placeholders = ', '.join(['%s'] * len(fields))
                 fields_str = ', '.join(fields)
                 
-                # Build SQL query - we don't use ON CONFLICT here since trades might be amended
-                # and the filing date is more important as a primary key
+                # Build SQL query with ON CONFLICT to update existing records
+                # Unique constraint is on (ticker, name, transaction_date, filing_date)
+                update_fields = ', '.join([f"{field} = EXCLUDED.{field}" for field in fields])
+                update_fields += ", updated_at = CURRENT_TIMESTAMP"
+                
                 sql = f"""
                 INSERT INTO insider_trades ({fields_str})
                 VALUES ({placeholders})
+                ON CONFLICT (ticker, name, transaction_date, filing_date) DO UPDATE SET
+                    {update_fields}
                 """
                 
-                # Execute query
-                cursor.execute(sql, [data[field] for field in fields])
-                insert_count += 1
+                # Execute query in its own transaction
+                with conn:
+                    cursor.execute(sql, [data[field] for field in fields])
+                    insert_count += 1
                 
             except Exception as inner_e:
-                print(f"Error inserting insider trade for {trade.ticker} on {trade.filing_date}: {inner_e}")
-        
-        # Commit the transaction
-        conn.commit()
+                error_count += 1
+                last_error = inner_e
+                conn.rollback()  # Ensure transaction is clean for next insert
         
         # Close cursor and connection
         cursor.close()
         conn.close()
         
-        print(f"Successfully saved {insert_count} insider trade records")
-        return True
+        # Print summary
+        print(f"Saved {insert_count} insider trade records")
+        if error_count > 0:
+            print(f"{Fore.YELLOW}Failed to save {error_count} records. Last error: {last_error}{Style.RESET_ALL}")
+        
+        return insert_count > 0
         
     except Exception as e:
-        print(f"Error saving insider trades to database: {e}")
+        print(f"{Fore.RED}Error saving insider trades: {e}{Style.RESET_ALL}")
         return False
 
 def get_company_news_db(
@@ -762,4 +774,4 @@ def save_company_news(news_list: list[CompanyNews]) -> bool:
         
     except Exception as e:
         print(f"Error saving company news to database: {e}")
-        return False 
+        return False
