@@ -20,7 +20,7 @@ This system employs several agents working together:
 14. Risk Manager - Calculates risk metrics and sets position limits
 15. Portfolio Manager - Makes final trading decisions and generates orders
     
-<img width="1042" alt="Screenshot 2025-03-22 at 6 19 07 PM" src="https://github.com/user-attachments/assets/cbae3dcf-b571-490d-b0ad-3f0f035ac0d4" />
+<img width="1042" alt="Screenshot 2025-03-22 at 6 19 07 PM" src="https://github.com/user-attachments/assets/cbae3dcf-b571-490d-b0ad-3f0f035ac0d4" />
 
 
 **Note**: the system simulates trading decisions, it does not actually trade.
@@ -230,6 +230,32 @@ poetry run python src/backtester.py --ticker AAPL,MSFT,NVDA --ollama
 run.bat --ticker AAPL,MSFT,NVDA --ollama backtest
 ```
 
+## Running Tests
+
+The project includes a comprehensive suite of unit tests that verify the functionality of the API client, data models, and cache components. These tests use mock data to avoid making real API calls.
+
+### Running Tests with Poetry
+```bash
+# Run all tests
+poetry run python test/run_tests.py
+
+# Run a specific test file
+poetry run python -m unittest test/test_api.py
+poetry run python -m unittest test/test_models.py
+poetry run python -m unittest test/test_cache.py
+poetry run python -m unittest test/test_integration.py
+```
+
+### Running Tests with Docker
+```bash
+# On Linux/Mac:
+./run.sh test
+
+# On Windows:
+run.bat test
+```
+
+The tests use mock data stored in `test/mock/` which simulates the responses from the financial data API. This allows testing without requiring an API key or internet connection.
 
 ## Project Structure 
 ```
@@ -245,6 +271,7 @@ ai-hedge-fund/
 │   │   ├── valuation.py          # Valuation analysis agent
 │   │   ├── ...                   # Other agents
 │   │   ├── warren_buffett.py     # Warren Buffett agent
+│   │   ├── ...                   # Other agents
 │   ├── tools/                    # Agent tools
 │   │   ├── api.py                # API tools
 │   ├── backtester.py             # Backtesting tools
