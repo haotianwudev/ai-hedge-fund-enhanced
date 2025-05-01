@@ -1,0 +1,42 @@
+[
+  {
+    "ticker": "AAPL",
+    "report_period": "2025-01-30",
+    "period": "ttm",
+    "currency": "USD",
+    "revenue": 385000000000.0,
+    "cost_of_revenue": 219450000000.0,
+    "gross_profit": 165550000000.0,
+    "operating_income": 119350000000.0,
+    "net_income": 107800000000.0,
+    "diluted_eps": 6.42,
+    "cash_and_equivalents": 25400000000.0,
+    "short_term_investments": 32300000000.0,
+    "total_assets": 358200000000.0,
+    "total_debt": 118400000000.0,
+    "total_equity": 75200000000.0,
+    "operating_cash_flow": 118500000000.0,
+    "capital_expenditure": 11800000000.0,
+    "free_cash_flow": 106700000000.0
+  },
+  {
+    "ticker": "AAPL",
+    "report_period": "2024-11-01",
+    "period": "ttm",
+    "currency": "USD",
+    "revenue": 375600000000.0,
+    "cost_of_revenue": 215970000000.0,
+    "gross_profit": 159630000000.0,
+    "operating_income": 114190000000.0,
+    "net_income": 103290000000.0,
+    "diluted_eps": 6.24,
+    "cash_and_equivalents": 23800000000.0,
+    "short_term_investments": 31200000000.0,
+    "total_assets": 352400000000.0,
+    "total_debt": 117500000000.0,
+    "total_equity": 72600000000.0,
+    "operating_cash_flow": 115800000000.0,
+    "capital_expenditure": 11200000000.0,
+    "free_cash_flow": 104600000000.0
+  }
+]
