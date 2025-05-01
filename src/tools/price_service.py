@@ -1,5 +1,5 @@
 """
-Price Service that integrates API and database functions.
+Price Service that integrates cache and database functions.
 This service provides a unified interface for retrieving price data,
 with automatic caching to both memory and database.
 """
@@ -7,8 +7,7 @@ with automatic caching to both memory and database.
 import datetime
 from src.data.models import Price
 from src.data.cache import get_cache
-from src.tools.api import get_prices as get_prices_api
-from src.tools.api_db import get_prices_db, save_prices
+from src.tools.api_db import get_prices_db
 
 class PriceService:
     """Service for retrieving and managing price data."""
@@ -21,11 +20,9 @@ class PriceService:
         """
         Get price data for the given ticker and date range.
         
-        This function implements a multi-level caching strategy:
+        This function implements a two-level caching strategy:
         1. First, check in-memory cache
         2. Then, check the database
-        3. Finally, fetch from the external API
-        4. Store results in both memory cache and database for future use
         
         Args:
             ticker: The stock ticker symbol
@@ -51,18 +48,7 @@ class PriceService:
             self._cache.set_prices(ticker, prices_to_cache)
             return db_data
         
-        # 3. If not in database, fetch from API
-        if api_data := get_prices_api(ticker, start_date, end_date):
-            # Cache in memory for future requests
-            prices_to_cache = [price.model_dump() for price in api_data]
-            self._cache.set_prices(ticker, prices_to_cache)
-            
-            # Store in database for persistence
-            save_prices(ticker, api_data)
-            
-            return api_data
-        
-        # If we reach here, data couldn't be found anywhere
+        # If data is not found in cache or database, return empty list
         return []
     
     def prices_to_df(self, prices: list[Price]) -> 'pd.DataFrame':

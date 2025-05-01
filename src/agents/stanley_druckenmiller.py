@@ -2,8 +2,8 @@ from graph.state import AgentState, show_agent_reasoning
 from tools.api import (
     get_financial_metrics,
     search_line_items,
-    get_prices,
-    get_price_data,
+    get_insider_trades,
+    get_company_news,
 )
 from tools.company_facts_service import get_market_cap
 from langchain_core.prompts import ChatPromptTemplate
@@ -14,6 +14,7 @@ from typing_extensions import Literal
 from utils.progress import progress
 from utils.llm import call_llm
 import statistics
+from tools.price_service import get_prices
 
 
 class StanleyDruckenmillerSignal(BaseModel):

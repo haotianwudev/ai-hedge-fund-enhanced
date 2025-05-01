@@ -5,6 +5,9 @@ Load Financial Data Script
 This script fetches company facts and price data for specified tickers and saves it to the PostgreSQL database.
 It uses the API functions in tools/api.py to get the data and stores it in the company_facts and prices tables.
 
+The price_service.py module can then access this data from the cache and database, but won't
+make API calls directly. This script is responsible for populating the database with price data.
+
 Example usage:
     poetry run python src/load_financial_data.py --tickers AAPL,MSFT,NVDA
 """
@@ -22,8 +25,10 @@ from dotenv import load_dotenv
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
 
-# Import API functions
+# Import API functions to fetch data
 from tools.api import get_company_facts, get_prices
+# Import DB functions to save data
+from tools.api_db import save_prices as save_prices_db
 
 # Initialize colorama
 init(autoreset=True)
@@ -81,68 +86,16 @@ def save_company_facts_to_db(company_facts):
         return False
 
 def save_prices_to_db(ticker, prices):
-    """Save price data to the PostgreSQL database."""
+    """
+    Save price data to the PostgreSQL database using the api_db module.
+    This is a simple wrapper around the api_db.save_prices function.
+    """
     if not prices:
         return False
-        
+    
     try:
-        # Get database URL from environment
-        db_url = os.environ.get("DATABASE_URL")
-        if not db_url:
-            print(f"{Fore.RED}Error: DATABASE_URL environment variable not set{Style.RESET_ALL}")
-            return False
-
-        # Connect to PostgreSQL
-        conn = psycopg2.connect(db_url)
-        cursor = conn.cursor()
-        
-        # Fields to insert/update
-        fields = [
-            'ticker', 'time', 'biz_date', 'open', 'close', 'high', 'low', 'volume'
-        ]
-        
-        # Prepare data for insert
-        values = []
-        for price in prices:
-            data = price.model_dump()
-            # Extract date from time for biz_date
-            time_str = data['time']
-            date_part = time_str.split('T')[0] if 'T' in time_str else time_str.split(' ')[0]
-            
-            values.append([
-                ticker, 
-                data['time'], 
-                date_part,  # biz_date
-                data['open'], 
-                data['close'], 
-                data['high'], 
-                data['low'], 
-                data['volume']
-            ])
-        
-        # Build the SQL query
-        field_list = ', '.join(fields)
-        update_list = ', '.join([f"{field} = EXCLUDED.{field}" for field in fields if field != 'ticker' and field != 'biz_date'])
-        update_list += ", updated_at = CURRENT_TIMESTAMP"
-        
-        sql = f"""
-        INSERT INTO prices ({field_list})
-        VALUES %s
-        ON CONFLICT (ticker, biz_date) DO UPDATE SET {update_list}
-        """
-        
-        # Execute the query with multiple rows
-        execute_values(cursor, sql, values, template=None, page_size=100)
-        
-        # Commit the transaction
-        conn.commit()
-        
-        # Close cursor and connection
-        cursor.close()
-        conn.close()
-        
-        return True
-        
+        # Use the save_prices function from api_db
+        return save_prices_db(ticker, prices)
     except Exception as e:
         print(f"{Fore.RED}Error saving price data to database: {e}{Style.RESET_ALL}")
         return False
@@ -150,6 +103,7 @@ def save_prices_to_db(ticker, prices):
 def load_financial_data(tickers, start_date, end_date, verbose=False):
     """
     Load financial data for the specified tickers and date range.
+    This function is responsible for fetching data from the API and saving it to the database.
     
     Args:
         tickers (list): List of ticker symbols
@@ -195,12 +149,12 @@ def load_financial_data(tickers, start_date, end_date, verbose=False):
                 print(f"{Fore.RED}No company facts data available{Style.RESET_ALL}")
                 results["failed"].append(ticker)
             
-            # Get price data
-            print(f"Fetching price data for {Fore.YELLOW}{ticker}{Style.RESET_ALL}... ", end="", flush=True)
+            # Fetch price data from API
+            print(f"Fetching price data for {Fore.YELLOW}{ticker}{Style.RESET_ALL} from API... ", end="", flush=True)
             prices = get_prices(ticker, start_date, end_date)
             
             if prices:
-                # Save to database
+                # Save to database using the function from api_db
                 if save_prices_to_db(ticker, prices):
                     print(f"{Fore.GREEN}Prices saved successfully ({len(prices)} records){Style.RESET_ALL}")
                     results["prices_success"].append(ticker)
@@ -208,7 +162,7 @@ def load_financial_data(tickers, start_date, end_date, verbose=False):
                     print(f"{Fore.RED}Failed to save price data to database{Style.RESET_ALL}")
                     results["prices_failed"].append(ticker)
             else:
-                print(f"{Fore.RED}No price data available{Style.RESET_ALL}")
+                print(f"{Fore.RED}No price data available from API{Style.RESET_ALL}")
                 results["prices_failed"].append(ticker)
                 
         except Exception as e:

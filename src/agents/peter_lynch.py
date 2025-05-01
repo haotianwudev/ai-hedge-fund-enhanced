@@ -13,6 +13,7 @@ import json
 from typing_extensions import Literal
 from utils.progress import progress
 from utils.llm import call_llm
+from tools.price_service import get_prices
 
 
 class PeterLynchSignal(BaseModel):

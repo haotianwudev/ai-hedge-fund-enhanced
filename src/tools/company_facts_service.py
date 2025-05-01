@@ -58,30 +58,23 @@ class CompanyFactsService:
         Only uses cache or database, never calls the API directly.
         
         For current date, retrieves from company facts (cache or DB).
-        For historical dates, tries the database.
         
         Args:
             ticker: The stock ticker symbol
-            end_date: The date for which to get market cap (defaults to today)
+            end_date: The date is ignored in database lookup, only used for compatibility
             
         Returns:
             The market cap value if found, None otherwise
         """
         ticker = ticker.upper()
         
-        # Use today's date if no date is provided
-        if end_date is None:
-            end_date = datetime.datetime.now().strftime("%Y-%m-%d")
-        
-        # Check if it's today's date
-        if end_date == datetime.datetime.now().strftime("%Y-%m-%d"):
-            # Try to get from company facts (which will check cache then database)
-            facts = self.get_company_facts(ticker)
-            if facts and facts.market_cap is not None:
-                return facts.market_cap
+        # Try to get from company facts (which will check cache then database)
+        facts = self.get_company_facts(ticker)
+        if facts and facts.market_cap is not None:
+            return facts.market_cap
         
         # Try to get directly from database
-        market_cap = get_market_cap_db(ticker, end_date)
+        market_cap = get_market_cap_db(ticker)
         if market_cap is not None:
             return market_cap
             

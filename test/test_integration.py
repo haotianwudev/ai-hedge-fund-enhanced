@@ -197,13 +197,16 @@ class TestIntegration(unittest.TestCase):
         # Verify market cap is a reasonable value (greater than 1 trillion)
         self.assertGreater(result_today, 1000000000000.0)
         
-        # Setup mocks for historical date
+        # Setup mocks for historical date - now get_market_cap_db only takes ticker
         historical_date = "2025-01-15"
+        mock_get_company_facts.return_value = None  # Simulate company facts not found
         mock_get_market_cap_db.return_value = 2850000000000.0
         
-        # Test historical date market cap 
+        # Test with historical date, but it will only use ticker now
         result_past = get_market_cap("AAPL", historical_date)
         self.assertEqual(result_past, 2850000000000.0)
+        # Verify get_market_cap_db was called only with ticker
+        mock_get_market_cap_db.assert_called_with("AAPL")
 
 if __name__ == '__main__':
     unittest.main() 

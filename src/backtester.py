@@ -15,11 +15,10 @@ from utils.analysts import ANALYST_ORDER
 from main import run_hedge_fund
 from tools.api import (
     get_company_news,
-    get_price_data,
-    get_prices,
     get_financial_metrics,
     get_insider_trades,
 )
+from tools.price_service import get_prices, get_price_data
 from utils.display import print_backtest_results, format_backtest_row
 from typing_extensions import Callable
 from utils.ollama import ensure_ollama_and_model
@@ -273,17 +272,26 @@ class Backtester:
         start_date_dt = end_date_dt - relativedelta(years=1)
         start_date_str = start_date_dt.strftime("%Y-%m-%d")
 
+        # Fetch data from cache/database for all tickers
         for ticker in self.tickers:
-            # Fetch price data for the entire period, plus 1 year
-            get_prices(ticker, start_date_str, self.end_date)
+            # Get prices from cache/database
+            print(f"Fetching price data for {ticker}...")
+            prices = get_prices(ticker, start_date_str, self.end_date)
+            if not prices:
+                print(f"{Fore.YELLOW}Warning: No price data found for {ticker}. Please run load_financial_data.py first.{Style.RESET_ALL}")
+            else:
+                print(f"Found {len(prices)} price records for {ticker}")
 
             # Fetch financial metrics
+            print(f"Fetching financial metrics for {ticker}...")
             get_financial_metrics(ticker, self.end_date, limit=10)
 
             # Fetch insider trades
+            print(f"Fetching insider trades for {ticker}...")
             get_insider_trades(ticker, self.end_date, start_date=self.start_date, limit=1000)
 
             # Fetch company news
+            print(f"Fetching company news for {ticker}...")
             get_company_news(ticker, self.end_date, start_date=self.start_date, limit=1000)
 
         print("Data pre-fetch complete.")

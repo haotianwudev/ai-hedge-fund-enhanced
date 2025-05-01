@@ -10,6 +10,7 @@ develop-eggs/
 dist/
 downloads/
 scripts/
+logs/
 eggs/
 .eggs/
 lib/
