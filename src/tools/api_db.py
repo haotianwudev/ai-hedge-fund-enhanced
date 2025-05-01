@@ -8,13 +8,27 @@ import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from src.data.models import CompanyFacts
+from dotenv import load_dotenv
 
-# Database connection string
-DB_CONNECTION_STRING = "postgresql://neondb_owner:npg_IjoHW5gl8AYZ@ep-billowing-wildflower-a4222ksm-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require"
+# Load environment variables
+load_dotenv()
 
 def get_db_connection():
     """Get a connection to the database."""
-    return psycopg2.connect(DB_CONNECTION_STRING)
+    # Get database connection parameters from environment variables
+    db_user = os.environ.get("DB_USER", "")
+    db_password = os.environ.get("DB_PASSWORD", "")
+    db_host = os.environ.get("DB_HOST", "")
+    db_name = os.environ.get("DB_NAME", "")
+    db_sslmode = os.environ.get("DB_SSLMODE", "require")
+    
+    # Build connection string
+    connection_string = f"postgresql://{db_user}:{db_password}@{db_host}/{db_name}?sslmode={db_sslmode}"
+    
+    # Fallback to direct connection string if provided (for backward compatibility)
+    connection_string = os.environ.get("DATABASE_URL", connection_string)
+    
+    return psycopg2.connect(connection_string)
 
 def get_company_facts_db(ticker: str) -> CompanyFacts | None:
     """Fetch company facts from the PostgreSQL database."""
