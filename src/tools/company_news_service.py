@@ -1,13 +1,12 @@
 """
 Company News Service that integrates cache and database functions.
 This service provides a unified interface for retrieving company news data,
-with automatic caching to both memory and database.
+using only cached data and database storage without direct API calls.
 """
 
 import pandas as pd
 from src.data.models import CompanyNews
 from src.data.cache import get_cache
-from src.tools.api import get_company_news as get_company_news_api
 from src.tools.api_db import get_company_news_db, save_company_news
 
 class CompanyNewsService:
@@ -27,10 +26,9 @@ class CompanyNewsService:
         """
         Get company news data for the given ticker.
         
-        This function implements a three-level caching strategy:
+        This function implements a two-level caching strategy:
         1. First, check in-memory cache
         2. Then, check the database
-        3. Finally, fall back to the API
         
         Args:
             ticker: The stock ticker symbol
@@ -66,20 +64,7 @@ class CompanyNewsService:
             self._cache.set_company_news(ticker, news_to_cache)
             return db_data
         
-        # 3. If not in cache or database, fetch from API (slowest)
-        api_data = get_company_news_api(ticker, end_date, start_date, limit)
-        
-        if api_data:
-            # Save to database
-            save_company_news(api_data)
-            
-            # Cache in memory
-            news_to_cache = [news.model_dump() for news in api_data]
-            self._cache.set_company_news(ticker, news_to_cache)
-            
-            return api_data
-        
-        # If data is not found anywhere, return empty list
+        # If data is not found in cache or database, return empty list
         return []
     
     def company_news_to_df(self, news_list: list[CompanyNews]) -> pd.DataFrame:
@@ -122,4 +107,4 @@ def get_company_news_df(
 ) -> pd.DataFrame:
     """Get company news as a DataFrame."""
     news_list = company_news_service.get_company_news(ticker, end_date, start_date, limit)
-    return company_news_service.company_news_to_df(news_list) 
+    return company_news_service.company_news_to_df(news_list)

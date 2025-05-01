@@ -1,13 +1,12 @@
 """
 Line Items Service that integrates cache and database functions.
 This service provides a unified interface for retrieving financial line items data,
-with automatic caching to both memory and database.
+using only cached data and database storage without direct API calls.
 """
 
 import pandas as pd
 from src.data.models import LineItem
 from src.data.cache import get_cache
-from src.tools.api import search_line_items as search_line_items_api
 from src.tools.api_db import get_line_items_db, save_line_items
 
 class LineItemsService:
@@ -28,10 +27,9 @@ class LineItemsService:
         """
         Get line items data for the given ticker.
         
-        This function implements a three-level caching strategy:
+        This function implements a two-level caching strategy:
         1. First, check in-memory cache
         2. Then, check the database
-        3. Finally, fall back to the API
         
         Args:
             ticker: The stock ticker symbol
@@ -83,18 +81,6 @@ class LineItemsService:
             # We don't set directly because line items are stored differently in cache
             # Instead, we'll update the cache during the API call below if needed
             return db_items
-        
-        # 3. If not in cache or database, fetch from API (slowest)
-        api_items = search_line_items_api(ticker, line_items, end_date, period, limit)
-        
-        if api_items:
-            # Save to database
-            save_line_items(ticker, api_items)
-            
-            # Cache in memory
-            self._cache_line_items(ticker, api_items)
-            
-            return api_items
         
         # Return cached items if we have any (even if fewer than requested)
         return cached_items
@@ -181,4 +167,4 @@ def get_line_items_df(
 ) -> pd.DataFrame:
     """Get line items as a DataFrame."""
     items = line_items_service.get_line_items(ticker, line_items, end_date, period, limit)
-    return line_items_service.line_items_to_df(items) 
+    return line_items_service.line_items_to_df(items)

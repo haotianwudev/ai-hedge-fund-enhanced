@@ -1,5 +1,6 @@
 from graph.state import AgentState, show_agent_reasoning
-from src.tools.api import get_financial_metrics, search_line_items
+from src.tools.financial_metrics_service import get_financial_metrics
+from src.tools.line_items_service import search_line_items
 from src.tools.company_facts_service import get_market_cap
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import HumanMessage

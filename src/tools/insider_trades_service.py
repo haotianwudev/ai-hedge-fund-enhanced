@@ -1,13 +1,12 @@
 """
 Insider Trades Service that integrates cache and database functions.
 This service provides a unified interface for retrieving insider trading data,
-with automatic caching to both memory and database.
+using only cached data and database storage without direct API calls.
 """
 
 import pandas as pd
 from src.data.models import InsiderTrade
 from src.data.cache import get_cache
-from src.tools.api import get_insider_trades as get_insider_trades_api
 from src.tools.api_db import get_insider_trades_db, save_insider_trades
 
 class InsiderTradesService:
@@ -27,10 +26,9 @@ class InsiderTradesService:
         """
         Get insider trades data for the given ticker.
         
-        This function implements a three-level caching strategy:
+        This function implements a two-level caching strategy:
         1. First, check in-memory cache
         2. Then, check the database
-        3. Finally, fall back to the API
         
         Args:
             ticker: The stock ticker symbol
@@ -70,20 +68,7 @@ class InsiderTradesService:
             self._cache.set_insider_trades(ticker, trades_to_cache)
             return db_data
         
-        # 3. If not in cache or database, fetch from API (slowest)
-        api_data = get_insider_trades_api(ticker, end_date, start_date, limit)
-        
-        if api_data:
-            # Save to database
-            save_insider_trades(api_data)
-            
-            # Cache in memory
-            trades_to_cache = [trade.model_dump() for trade in api_data]
-            self._cache.set_insider_trades(ticker, trades_to_cache)
-            
-            return api_data
-        
-        # If data is not found anywhere, return empty list
+        # If data is not found in cache or database, return empty list
         return []
     
     def insider_trades_to_df(self, trades: list[InsiderTrade]) -> pd.DataFrame:
@@ -133,4 +118,4 @@ def get_insider_trades_df(
 ) -> pd.DataFrame:
     """Get insider trades as a DataFrame."""
     trades = insider_trades_service.get_insider_trades(ticker, end_date, start_date, limit)
-    return insider_trades_service.insider_trades_to_df(trades) 
+    return insider_trades_service.insider_trades_to_df(trades)

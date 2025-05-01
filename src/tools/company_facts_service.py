@@ -1,13 +1,12 @@
 """
-Company Facts Service that integrates API and database functions.
+Company Facts Service that integrates cache and database functions.
 This service provides a unified interface for retrieving company facts,
-with automatic caching to both memory and database.
+using only cached data and database storage without direct API calls.
 """
 
 import datetime
 from src.data.models import CompanyFacts
 from src.data.cache import get_cache
-from src.tools.api import get_company_facts as get_company_facts_api
 from src.tools.api_db import get_company_facts_db, get_market_cap_db, save_company_facts
 
 class CompanyFactsService:
@@ -21,11 +20,11 @@ class CompanyFactsService:
         """
         Get company facts for the given ticker.
         
-        This function implements a multi-level caching strategy:
+        This function implements a two-level caching strategy:
         1. First, check in-memory cache
         2. Then, check the database
-        3. Finally, fetch from the external API
-        4. Store results in both memory cache and database for future use
+        
+        Returns cached or database data only, without making API calls.
         """
         ticker = ticker.upper()
         
@@ -39,17 +38,7 @@ class CompanyFactsService:
             self._cache.set_company_facts(ticker, db_data.model_dump())
             return db_data
         
-        # 3. If not in database, fetch from API
-        if api_data := get_company_facts_api(ticker):
-            # Cache in memory for future requests
-            self._cache.set_company_facts(ticker, api_data.model_dump())
-            
-            # Store in database for persistence
-            save_company_facts(api_data)
-            
-            return api_data
-        
-        # If we reach here, data couldn't be found anywhere
+        # If we reach here, data couldn't be found in cache or database
         return None
     
     def get_market_cap(self, ticker: str, end_date: str = None) -> float | None:
@@ -94,4 +83,4 @@ def get_market_cap(ticker: str, end_date: str = None) -> float | None:
     Get market cap for the given ticker and date.
     Only retrieves from cache or database, never calls the API directly.
     """
-    return company_facts_service.get_market_cap(ticker, end_date) 
+    return company_facts_service.get_market_cap(ticker, end_date)
