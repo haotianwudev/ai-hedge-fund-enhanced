@@ -3,8 +3,8 @@ import os
 import pandas as pd
 import requests
 
-from data.cache import get_cache
-from data.models import (
+from src.data.cache import get_cache
+from src.data.models import (
     CompanyNews,
     CompanyNewsResponse,
     FinancialMetrics,
@@ -280,31 +280,6 @@ def get_company_facts(
     _cache.set_company_facts(ticker, company_facts.model_dump())
     
     return company_facts
-
-
-def get_market_cap(
-    ticker: str,
-    end_date: str,
-) -> float | None:
-    """Fetch market cap from the API."""
-    # Check if end_date is today
-    if end_date == datetime.datetime.now().strftime("%Y-%m-%d"):
-        # Get the market cap from company facts API
-        company_facts = get_company_facts(ticker)
-        if company_facts:
-            return company_facts.market_cap
-        return None
-
-    financial_metrics = get_financial_metrics(ticker, end_date)
-    if not financial_metrics:
-        return None
-    
-    market_cap = financial_metrics[0].market_cap
-
-    if not market_cap:
-        return None
-
-    return market_cap
 
 
 def prices_to_df(prices: list[Price]) -> pd.DataFrame:

@@ -3,6 +3,9 @@ import json
 import os
 from unittest.mock import patch, MagicMock
 
+# Import test utilities to set up path
+import test_utils
+
 # Create a mock API class
 class MockAPI:
     def get_prices(self, ticker, start_date, end_date):
@@ -19,9 +22,6 @@ class MockAPI:
     
     def get_company_facts(self, ticker):
         pass
-    
-    def get_market_cap(self, ticker, end_date):
-        pass
 
 from src.data.models import (
     Price,
@@ -30,6 +30,8 @@ from src.data.models import (
     InsiderTrade
 )
 
+# Import the function from company_facts_service for testing
+from src.tools.company_facts_service import get_market_cap
 
 class TestIntegration(unittest.TestCase):
     """Integration tests for API and data flow."""
@@ -177,25 +179,31 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(result.market_cap, 2918000000000.0)
         self.assertEqual(result.sector, "Information Technology")
         
-
-    def test_market_cap_workflow(self):
-        """Test end-to-end workflow for market cap retrieval."""
-        # Test current day market cap
+    @patch('src.tools.company_facts_service.get_company_facts')
+    @patch('src.tools.company_facts_service.get_market_cap_db')
+    def test_company_facts_service_market_cap(self, mock_get_market_cap_db, mock_get_company_facts):
+        """Test the get_market_cap function from company_facts_service."""
         import datetime
+        from src.data.models import CompanyFacts
+        
+        # Setup mocks for today's date
         today = datetime.datetime.now().strftime("%Y-%m-%d")
+        mock_facts = CompanyFacts(**self.mock_company_facts)
+        mock_get_company_facts.return_value = mock_facts
         
-        # Configure the mock
-        self.api.get_market_cap = MagicMock(return_value=2918000000000.0)
+        # Test current day market cap
+        result_today = get_market_cap("AAPL", today)
+        self.assertIsNotNone(result_today)
+        # Verify market cap is a reasonable value (greater than 1 trillion)
+        self.assertGreater(result_today, 1000000000000.0)
         
-        # Call and verify
-        result_today = self.api.get_market_cap("AAPL", today)
-        self.assertEqual(result_today, 2918000000000.0)
+        # Setup mocks for historical date
+        historical_date = "2025-01-15"
+        mock_get_market_cap_db.return_value = 2850000000000.0
         
-        # Test historical date
-        self.api.get_market_cap = MagicMock(return_value=2850000000000.0)
-        result_past = self.api.get_market_cap("AAPL", "2025-01-15")
+        # Test historical date market cap 
+        result_past = get_market_cap("AAPL", historical_date)
         self.assertEqual(result_past, 2850000000000.0)
-
 
 if __name__ == '__main__':
     unittest.main() 

@@ -14,9 +14,9 @@ from utils.progress import progress
 
 from tools.api import (
     get_financial_metrics,
-    get_market_cap,
     search_line_items,
 )
+from tools.company_facts_service import get_market_cap
 
 def valuation_agent(state: AgentState):
     """Run valuation across tickers and write signals back to `state`."""

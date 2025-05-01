@@ -13,9 +13,9 @@ from tools.api import (
     get_company_news,
     get_financial_metrics,
     get_insider_trades,
-    get_market_cap,
     search_line_items,
 )
+from tools.company_facts_service import get_market_cap
 from utils.llm import call_llm
 from utils.progress import progress
 

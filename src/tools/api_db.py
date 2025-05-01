@@ -7,7 +7,7 @@ import os
 import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from data.models import CompanyFacts
+from src.data.models import CompanyFacts
 
 # Database connection string
 DB_CONNECTION_STRING = "postgresql://neondb_owner:npg_IjoHW5gl8AYZ@ep-billowing-wildflower-a4222ksm-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require"

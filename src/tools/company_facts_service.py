@@ -5,10 +5,10 @@ with automatic caching to both memory and database.
 """
 
 import datetime
-from data.models import CompanyFacts
-from data.cache import get_cache
+from src.data.models import CompanyFacts
+from src.data.cache import get_cache
 from src.tools.api import get_company_facts as get_company_facts_api
-from src.tools.api_db import get_company_facts_db, save_company_facts
+from tools.api_db import get_company_facts_db, get_market_cap_db, save_company_facts
 
 class CompanyFactsService:
     """Service for retrieving and managing company facts."""
@@ -55,8 +55,17 @@ class CompanyFactsService:
     def get_market_cap(self, ticker: str, end_date: str = None) -> float | None:
         """
         Get market cap for the given ticker and date.
-        For current date, uses company facts.
-        For historical dates, falls back to financial metrics.
+        Only uses cache or database, never calls the API directly.
+        
+        For current date, retrieves from company facts (cache or DB).
+        For historical dates, tries the database.
+        
+        Args:
+            ticker: The stock ticker symbol
+            end_date: The date for which to get market cap (defaults to today)
+            
+        Returns:
+            The market cap value if found, None otherwise
         """
         ticker = ticker.upper()
         
@@ -64,16 +73,20 @@ class CompanyFactsService:
         if end_date is None:
             end_date = datetime.datetime.now().strftime("%Y-%m-%d")
         
-        # Get company facts if end_date is today
+        # Check if it's today's date
         if end_date == datetime.datetime.now().strftime("%Y-%m-%d"):
+            # Try to get from company facts (which will check cache then database)
             facts = self.get_company_facts(ticker)
-            if facts:
+            if facts and facts.market_cap is not None:
                 return facts.market_cap
         
-        # For historical data, use the API's get_market_cap function
-        # which already handles both current and historical requests
-        from src.tools.api import get_market_cap as get_market_cap_api
-        return get_market_cap_api(ticker, end_date)
+        # Try to get directly from database
+        market_cap = get_market_cap_db(ticker, end_date)
+        if market_cap is not None:
+            return market_cap
+            
+        # If we get here, the data isn't available in cache or database
+        return None
 
 # Create a singleton instance
 company_facts_service = CompanyFactsService()
@@ -84,5 +97,8 @@ def get_company_facts(ticker: str) -> CompanyFacts | None:
     return company_facts_service.get_company_facts(ticker)
 
 def get_market_cap(ticker: str, end_date: str = None) -> float | None:
-    """Get market cap for the given ticker and date."""
+    """
+    Get market cap for the given ticker and date.
+    Only retrieves from cache or database, never calls the API directly.
+    """
     return company_facts_service.get_market_cap(ticker, end_date) 
