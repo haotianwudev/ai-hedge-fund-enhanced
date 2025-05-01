@@ -8,8 +8,8 @@ class TestCache(unittest.TestCase):
     """Test case for the Cache class."""
     
     def setUp(self):
-        """Set up test fixtures."""
-        # Create a fresh cache instance for each test
+        """Set up test fixtures, including loading mock data."""
+        # Get a clean cache instance for testing
         self.cache = Cache()
         
         # Load mock data
@@ -30,6 +30,10 @@ class TestCache(unittest.TestCase):
         # Load insider trades data
         with open(os.path.join(self.mock_dir, "aapl_insider_trades.json"), "r") as f:
             self.mock_insider_trades = json.load(f)
+            
+        # Load company facts data
+        with open(os.path.join(self.mock_dir, "aapl_company_facts.json"), "r") as f:
+            self.mock_company_facts = json.load(f)
     
     def test_prices_cache(self):
         """Test caching of price data."""
@@ -177,6 +181,40 @@ class TestCache(unittest.TestCase):
         newest_entry = next((item for item in merged_data if item["filing_date"] == "2025-04-29"), None)
         self.assertIsNotNone(newest_entry)
         self.assertEqual(newest_entry["name"], "Craig Federighi")
+    
+    def test_company_facts_cache(self):
+        """Test caching of company facts."""
+        # Verify cache is empty initially
+        self.assertIsNone(self.cache.get_company_facts("AAPL"))
+        
+        # Set company facts in cache
+        self.cache.set_company_facts("AAPL", self.mock_company_facts)
+        
+        # Verify we can retrieve the facts
+        cached_facts = self.cache.get_company_facts("AAPL")
+        self.assertIsNotNone(cached_facts)
+        self.assertEqual(cached_facts["ticker"], "AAPL")
+        self.assertEqual(cached_facts["name"], "Apple Inc.")
+        self.assertEqual(cached_facts["market_cap"], 2918000000000.0)
+        
+        # Update with new data
+        updated_facts = self.mock_company_facts.copy()
+        updated_facts["market_cap"] = 3000000000000.0
+        self.cache.set_company_facts("AAPL", updated_facts)
+        
+        # Verify updated data is cached
+        updated_cached = self.cache.get_company_facts("AAPL")
+        self.assertEqual(updated_cached["market_cap"], 3000000000000.0)
+        
+        # Test multiple tickers
+        msft_facts = self.mock_company_facts.copy()
+        msft_facts["ticker"] = "MSFT"
+        msft_facts["name"] = "Microsoft Corporation"
+        self.cache.set_company_facts("MSFT", msft_facts)
+        
+        # Verify both tickers are cached separately
+        self.assertEqual(self.cache.get_company_facts("AAPL")["ticker"], "AAPL")
+        self.assertEqual(self.cache.get_company_facts("MSFT")["ticker"], "MSFT")
 
 
 if __name__ == '__main__':

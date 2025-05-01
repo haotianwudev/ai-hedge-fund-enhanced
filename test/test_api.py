@@ -1,6 +1,7 @@
 import unittest
 import json
 import os
+import datetime
 from unittest.mock import patch, MagicMock
 
 # Create mock objects directly in the test file
@@ -18,6 +19,12 @@ class MockAPI:
         pass
     
     def search_line_items(self, ticker, line_items, end_date, period="ttm", limit=10):
+        pass
+    
+    def get_company_facts(self, ticker):
+        pass
+    
+    def get_market_cap(self, ticker, end_date):
         pass
 
 
@@ -48,17 +55,22 @@ class TestAPIFunctions(unittest.TestCase):
         # Load line items data
         with open(os.path.join(self.mock_dir, "aapl_line_items.json"), "r") as f:
             self.mock_line_items = json.load(f)
+            
+        # Load company facts data
+        with open(os.path.join(self.mock_dir, "aapl_company_facts.json"), "r") as f:
+            self.mock_company_facts = json.load(f)
         
         # Create mock API instance
         self.api = MockAPI()
         
         # Import models
-        from src.data.models import Price, FinancialMetrics, CompanyNews, InsiderTrade, LineItem
+        from src.data.models import Price, FinancialMetrics, CompanyNews, InsiderTrade, LineItem, CompanyFacts
         self.Price = Price
         self.FinancialMetrics = FinancialMetrics
         self.CompanyNews = CompanyNews
         self.InsiderTrade = InsiderTrade
         self.LineItem = LineItem
+        self.CompanyFacts = CompanyFacts
 
     def test_get_prices(self):
         """Test get_prices function."""
@@ -148,6 +160,59 @@ class TestAPIFunctions(unittest.TestCase):
         self.assertEqual(result[0].total_debt, 118400000000.0)
         self.assertEqual(result[0].cash_and_equivalents, 25400000000.0)
         
+    def test_get_company_facts(self):
+        """Test get_company_facts function."""
+        # Mock the API response
+        self.api.get_company_facts = MagicMock(
+            return_value=self.CompanyFacts(**self.mock_company_facts)
+        )
+        
+        # Call the function
+        result = self.api.get_company_facts("AAPL")
+        
+        # Verify the result
+        self.assertEqual(result.ticker, "AAPL")
+        self.assertEqual(result.name, "Apple Inc.")
+        self.assertEqual(result.market_cap, 2918000000000.0)
+        self.assertEqual(result.sector, "Information Technology")
+        self.assertEqual(result.industry, "Technology Hardware")
+        self.assertEqual(result.number_of_employees, 164000)
+        
+    def test_get_market_cap_current_day(self):
+        """Test get_market_cap function for current day."""
+        # Mock the API responses
+        self.api.get_company_facts = MagicMock(
+            return_value=self.CompanyFacts(**self.mock_company_facts)
+        )
+        
+        # Call the function with today's date
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        # Configure get_market_cap to use get_company_facts and return the market cap
+        self.api.get_market_cap = lambda ticker, end_date: self.mock_company_facts["market_cap"] if end_date == today else None
+        
+        # Test it
+        result = self.api.get_market_cap("AAPL", today)
+        
+        # Verify result is correct
+        self.assertEqual(result, 2918000000000.0)
+        
+    def test_get_market_cap_historical(self):
+        """Test get_market_cap function for historical data."""
+        # Mock the API responses
+        self.api.get_financial_metrics = MagicMock(
+            return_value=[self.FinancialMetrics(**m) for m in self.mock_financial_metrics]
+        )
+        
+        # Configure get_market_cap to use get_financial_metrics for historical dates
+        past_date = "2025-01-15"
+        self.api.get_market_cap = lambda ticker, end_date: self.mock_financial_metrics[0]["market_cap"] if end_date != datetime.datetime.now().strftime("%Y-%m-%d") else None
+        
+        # Call the function with a past date
+        result = self.api.get_market_cap("AAPL", past_date)
+        
+        # Verify result is correct
+        self.assertEqual(result, 2850000000000.0)
+
 
 if __name__ == '__main__':
     unittest.main() 
