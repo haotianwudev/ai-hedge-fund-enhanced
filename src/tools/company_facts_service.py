@@ -8,7 +8,7 @@ import datetime
 from src.data.models import CompanyFacts
 from src.data.cache import get_cache
 from src.tools.api import get_company_facts as get_company_facts_api
-from tools.api_db import get_company_facts_db, get_market_cap_db, save_company_facts
+from src.tools.api_db import get_company_facts_db, get_market_cap_db, save_company_facts
 
 class CompanyFactsService:
     """Service for retrieving and managing company facts."""
