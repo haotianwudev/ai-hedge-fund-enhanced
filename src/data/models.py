@@ -71,6 +71,15 @@ class LineItem(BaseModel):
     period: str
     currency: str
 
+    @property
+    def debt_to_equity(self) -> float | None:
+        """Calculate debt-to-equity ratio from total_debt and shareholders_equity."""
+        if hasattr(self, 'total_debt') and hasattr(self, 'shareholders_equity'):
+            if self.shareholders_equity == 0:
+                return None
+            return float(self.total_debt) / float(self.shareholders_equity)
+        return None
+
     # Allow additional fields dynamically
     model_config = {"extra": "allow"}
 
