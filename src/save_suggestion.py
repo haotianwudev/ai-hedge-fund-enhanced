@@ -30,7 +30,7 @@ load_dotenv()
 init(autoreset=True)
 
 # Hardcoded parameters
-TICKER = "AAPL"
+TICKERS = [ "AAPL", "NVDA" ]
 MODEL_NAME = "deepseek-chat"
 MODEL_PROVIDER = ModelProvider.DEEPSEEK.value
 INITIAL_CASH = 100000.0
@@ -115,7 +115,7 @@ def create_workflow(selected_analysts=None):
     workflow = StateGraph(AgentState)
     workflow.add_node("start_node", start)
 
-    # Get analyst nodes from the configuration
+    # Get analyst nodes from the configuration    
     analyst_nodes = get_analyst_nodes()
 
     # Default to all analysts if none selected
@@ -149,10 +149,12 @@ if __name__ == "__main__":
     configure_logging(save_logs=SAVE_LOGS)
 
     # Hardcoded ticker
-    tickers = [TICKER]
+    tickers = TICKERS
     
     # Use all analysts
-    selected_analysts = list(ANALYST_CONFIG.keys())
+    #selected_analysts = list(ANALYST_CONFIG.keys())
+    selected_analysts = ['fundamentals_analyst', 'warren_buffett'] 
+    
     print(f"\nUsing all analysts: {', '.join(Fore.GREEN + ANALYST_CONFIG[choice]['display_name'] + Style.RESET_ALL for choice in selected_analysts)}\n")
     
     # Using DeepSeek v3 model
