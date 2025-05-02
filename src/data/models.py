@@ -80,6 +80,13 @@ class LineItem(BaseModel):
             return float(self.total_debt) / float(self.shareholders_equity)
         return None
 
+    @property
+    def ebit(self) -> float | None:
+        """Calculate EBIT (Earnings Before Interest and Taxes)."""
+        if hasattr(self, 'operating_income'):
+            return float(self.operating_income)
+        return None
+
     # Allow additional fields dynamically
     model_config = {"extra": "allow"}
 
