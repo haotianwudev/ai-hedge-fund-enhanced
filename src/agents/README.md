@@ -66,6 +66,19 @@ gap = (intrinsic_value - market_cap) / market_cap
    - Scaled from 0-100% based on gap magnitude
    - Capped at 30% gap (absolute value)
 
+## LLM Interaction
+
+### Role in Valuation Agent:
+- Primarily used for final reasoning display
+- Formats the quantitative analysis results
+- Does not influence signal or confidence calculations
+
+### Example Prompt:
+```
+"Format this valuation analysis as a clear investment recommendation:
+{quantitative_results}"
+```
+
 ## Output Example
 ```json
 {
@@ -84,3 +97,77 @@ gap = (intrinsic_value - market_cap) / market_cap
     }
   }
 }
+```
+
+# Warren Buffett Agent Documentation
+
+## Overview
+The Warren Buffett Agent emulates the investment philosophy of Warren Buffett, focusing on:
+- Economic moats (durable competitive advantages)
+- Quality management
+- Owner earnings valuation
+- Margin of safety principle
+
+## Core Methodology
+
+### 1. Fundamental Analysis (0-10 points)
+- **Profitability**: ROE >15%, strong margins
+- **Financial Health**: Low debt, good liquidity
+- **Consistency**: Stable/improving earnings
+
+### 2. Moat Analysis (0-3 points)
+- **Stable ROE**: >15% across multiple periods
+- **Stable Margins**: >15% operating margins
+- **Both**: Indicates strongest moat
+
+### 3. Management Quality (0-2 points)
+- **Positive**: Share buybacks, dividends
+- **Negative**: Share dilution
+
+### 4. Intrinsic Value Calculation
+- Uses owner earnings (Net Income + Depreciation - Maintenance Capex)
+- Discounted cash flow with conservative assumptions
+- Requires >30% margin of safety
+
+## Signal Generation
+- **Bullish**: Total score ≥70% AND margin ≥30%
+- **Bearish**: Total score ≤30% OR margin ≤-30% 
+- **Neutral**: Between thresholds
+
+## LLM Interaction
+
+### Role in Buffett Agent:
+- Central to signal generation and confidence scoring
+- Evaluates qualitative factors beyond pure numbers
+- Applies Buffett's principles to final decision
+
+### Key Questions to LLM:
+1. "Does this company have durable competitive advantages?"
+2. "Is management acting in shareholders' best interests?"
+3. "Would Warren Buffett consider this a wonderful business?"
+4. "Is the margin of safety sufficient given the business quality?"
+
+### Confidence Calculation
+1. Quantitative Score (0-100):
+   - Scales with total points achieved
+   - Adjusted by margin of safety magnitude
+2. Qualitative LLM Assessment:
+   - Incorporates Buffett-style reasoning
+   - Final confidence score determined
+   - Considers business quality and management
+
+### Output Example
+```json
+{
+  "KO": {
+    "signal": "bullish",
+    "confidence": 88,
+    "reasoning": {
+      "fundamentals": "Strong ROE (18%), consistent earnings growth",
+      "moat": "Wide moat - dominant market position",
+      "management": "Shareholder-friendly - consistent buybacks",
+      "margin_of_safety": "35% undervaluation"
+    }
+  }
+}
+```
