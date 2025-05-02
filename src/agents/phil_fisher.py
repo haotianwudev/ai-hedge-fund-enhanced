@@ -44,7 +44,7 @@ def phil_fisher_agent(state: AgentState):
         progress.update_status("phil_fisher_agent", ticker, "Fetching financial metrics")
         # Using financial metrics service
 
-        metrics = get_financial_metrics(ticker, end_date, period="annual", limit=5)
+        metrics = get_financial_metrics(ticker, end_date, limit=5)
 
         progress.update_status("phil_fisher_agent", ticker, "Gathering financial line items")
         # Include relevant line items for Phil Fisher's approach:
@@ -72,7 +72,6 @@ def phil_fisher_agent(state: AgentState):
                 "ebitda",
             ],
             end_date,
-            period="annual",
             limit=5,
         )
 

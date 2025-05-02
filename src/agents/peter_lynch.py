@@ -50,7 +50,7 @@ def peter_lynch_agent(state: AgentState):
         progress.update_status("peter_lynch_agent", ticker, "Fetching financial metrics")
         # Using financial metrics service
 
-        metrics = get_financial_metrics(ticker, end_date, period="annual", limit=5)
+        metrics = get_financial_metrics(ticker, end_date, limit=5)
 
         progress.update_status("peter_lynch_agent", ticker, "Gathering financial line items")
         # Relevant line items for Peter Lynch's approach
@@ -73,7 +73,6 @@ def peter_lynch_agent(state: AgentState):
                 "outstanding_shares",
             ],
             end_date,
-            period="annual",
             limit=5,
         )
 

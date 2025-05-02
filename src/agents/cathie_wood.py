@@ -35,7 +35,7 @@ def cathie_wood_agent(state: AgentState):
         progress.update_status("cathie_wood_agent", ticker, "Fetching financial metrics")
         # Using financial metrics service
 
-        metrics = get_financial_metrics(ticker, end_date, period="annual", limit=5)
+        metrics = get_financial_metrics(ticker, end_date, limit=5)
 
         progress.update_status("cathie_wood_agent", ticker, "Gathering financial line items")
         # Request multiple periods of data (annual or TTM) for a more robust view.
@@ -59,7 +59,6 @@ def cathie_wood_agent(state: AgentState):
 
             ],
             end_date,
-            period="annual",
             limit=5
         )
 

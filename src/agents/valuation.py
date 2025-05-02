@@ -34,7 +34,6 @@ def valuation_agent(state: AgentState):
         financial_metrics = get_financial_metrics(
             ticker=ticker,
             end_date=end_date,
-            period="ttm",
             limit=8,
         )
         if not financial_metrics:
@@ -56,7 +55,6 @@ def valuation_agent(state: AgentState):
                 "working_capital",
             ],
             end_date=end_date,
-            period="ttm",
             limit=2,
         )
         if len(line_items) < 2:
