@@ -174,6 +174,12 @@ def calculate_owner_earnings_value(
     if not all(isinstance(x, (int, float)) for x in [net_income, depreciation, capex, working_capital_change]):
         return 0
 
+    # Convert potential Decimal values to float
+    net_income = float(net_income)
+    depreciation = float(depreciation)
+    capex = float(capex)
+    working_capital_change = float(working_capital_change)
+    
     owner_earnings = net_income + depreciation - capex - working_capital_change
     if owner_earnings <= 0:
         return 0
@@ -204,6 +210,9 @@ def calculate_intrinsic_value(
     if free_cash_flow is None or free_cash_flow <= 0:
         return 0
 
+    # Ensure free_cash_flow is a float (not Decimal)
+    free_cash_flow = float(free_cash_flow)
+    
     pv = 0.0
     for yr in range(1, num_years + 1):
         fcft = free_cash_flow * (1 + growth_rate) ** yr
@@ -227,12 +236,21 @@ def calculate_ev_ebitda_value(financial_metrics: list):
     if m0.enterprise_value_to_ebitda_ratio == 0:
         return 0
 
-    ebitda_now = m0.enterprise_value / m0.enterprise_value_to_ebitda_ratio
-    med_mult = median([
-        m.enterprise_value_to_ebitda_ratio for m in financial_metrics if m.enterprise_value_to_ebitda_ratio
-    ])
+    # Convert potential Decimal values to float
+    enterprise_value = float(m0.enterprise_value)
+    ev_ebitda_ratio = float(m0.enterprise_value_to_ebitda_ratio)
+    market_cap = float(m0.market_cap or 0)
+    
+    ebitda_now = enterprise_value / ev_ebitda_ratio
+    
+    # Get median with float conversion to avoid type errors
+    multiples = [float(m.enterprise_value_to_ebitda_ratio) 
+                 for m in financial_metrics 
+                 if m.enterprise_value_to_ebitda_ratio]
+    med_mult = median(multiples)
+    
     ev_implied = med_mult * ebitda_now
-    net_debt = (m0.enterprise_value or 0) - (m0.market_cap or 0)
+    net_debt = enterprise_value - market_cap
     return max(ev_implied - net_debt, 0)
 
 
@@ -249,6 +267,11 @@ def calculate_residual_income_value(
     if not (market_cap and net_income and price_to_book_ratio and price_to_book_ratio > 0):
         return 0
 
+    # Convert Decimal values to float to avoid type errors
+    market_cap = float(market_cap)
+    net_income = float(net_income)
+    price_to_book_ratio = float(price_to_book_ratio)
+    
     book_val = market_cap / price_to_book_ratio
     ri0 = net_income - cost_of_equity * book_val
     if ri0 <= 0:
