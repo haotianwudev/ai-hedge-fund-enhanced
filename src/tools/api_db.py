@@ -381,23 +381,25 @@ def get_line_items_db(
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-        # Build the SQL query with line_items as a list
-        items_list = "', '".join(line_items)
+        # With the new schema, we need to select specific columns from the line_items table
+        # Convert the line_items list to a comma-separated string of column names
+        line_items_columns = ', '.join(line_items)
         
-        # Query the database
-        cursor.execute(
-            f"""
-            SELECT ticker, report_period, period, currency, line_item_name, line_item_value 
-            FROM line_items 
-            WHERE ticker = %s 
-              AND report_period <= %s 
-              AND period = %s
-              AND line_item_name IN ('{items_list}')
-            ORDER BY report_period DESC, line_item_name
-            LIMIT %s
-            """, 
-            (ticker, end_date, period, limit)
-        )
+        # Build the SQL query to select all requested columns
+        sql = f"""
+        SELECT 
+            ticker, report_period, period, currency, 
+            {line_items_columns}
+        FROM line_items 
+        WHERE ticker = %s 
+          AND report_period <= %s 
+          AND period = %s
+        ORDER BY report_period DESC
+        LIMIT %s
+        """
+        
+        # Execute the query
+        cursor.execute(sql, (ticker, end_date, period, limit))
         results = cursor.fetchall()
         
         # Close cursor and connection
@@ -408,30 +410,17 @@ def get_line_items_db(
         if not results:
             return None
         
-        # Group results by report_period to create LineItem objects
-        grouped_results = {}
+        # Convert the results directly to LineItem objects
+        # Each row already has the structure we need
+        line_items_objects = []
         for result in results:
             # Convert date to string format
-            report_period = result['report_period'].isoformat()
+            result['report_period'] = result['report_period'].isoformat()
             
-            # Initialize the group if it doesn't exist
-            if report_period not in grouped_results:
-                grouped_results[report_period] = {
-                    'ticker': result['ticker'],
-                    'report_period': report_period,
-                    'period': result['period'],
-                    'currency': result['currency']
-                }
-            
-            # Add the line item value to the group
-            grouped_results[report_period][result['line_item_name']] = result['line_item_value']
+            # Create a LineItem object
+            line_items_objects.append(LineItem(**result))
         
-        # Convert grouped results to LineItem objects
-        line_items_objects = []
-        for data in grouped_results.values():
-            line_items_objects.append(LineItem(**data))
-        
-        # Sort by report_period in descending order
+        # Sort by report_period in descending order (should already be sorted by the query)
         line_items_objects.sort(key=lambda x: x.report_period, reverse=True)
         
         return line_items_objects
