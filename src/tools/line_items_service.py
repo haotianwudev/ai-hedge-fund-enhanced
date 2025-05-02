@@ -33,8 +33,8 @@ class LineItemsService:
         
         Args:
             ticker: The stock ticker symbol
-            line_items: List of line item names to fetch
-            end_date: The end date for filtering line items
+            line_items: List of line item names to fetch (must match database column names)
+            end_date: The end date for filtering line items (YYYY-MM-DD format)
             period: The reporting period (e.g., "ttm", "annual", "quarterly")
             limit: Maximum number of records to return
             
@@ -43,32 +43,50 @@ class LineItemsService:
         """
         ticker = ticker.upper()
         
+        # Validate requested line items against known database columns
+        valid_line_items = []
+        for item in line_items:
+            # Convert to snake_case if needed (e.g. "cashAndEquivalents" -> "cash_and_equivalents")
+            normalized_item = item.lower().replace(' ', '_')
+            if normalized_item in [
+                'cash_and_equivalents', 'current_assets', 'current_liabilities',
+                'outstanding_shares', 'total_assets', 'shareholders_equity',
+                'total_liabilities', 'goodwill_and_intangible_assets', 'total_debt',
+                'free_cash_flow', 'net_income', 'dividends_and_other_cash_distributions',
+                'depreciation_and_amortization', 'capital_expenditure', 'earnings_per_share',
+                'research_and_development', 'operating_income', 'revenue', 'working_capital',
+                'operating_margin', 'book_value_per_share', 'gross_margin',
+                'return_on_invested_capital', 'ebitda'
+            ]:
+                valid_line_items.append(normalized_item)
+        
+        if not valid_line_items:
+            return []
+        
         # 1. Check in-memory cache first (fastest)
-        # Since line items require specific fields, we need to check if we have all requested fields
         cached_items = []
         if cached_data := self._cache.get_line_items(ticker):
-            # Group by report period to find if we have all requested line items
-            grouped_by_period = {}
+            # Filter cached items by date and period
             for item in cached_data:
-                period_key = (item.get("report_period", ""), item.get("period", ""))
-                if period_key not in grouped_by_period:
-                    grouped_by_period[period_key] = {
-                        "ticker": item.get("ticker", ticker),
-                        "report_period": period_key[0],
-                        "period": period_key[1],
+                if (item.get("report_period") <= end_date and 
+                    item.get("period") == period and
+                    all(item.get(field) is not None for field in valid_line_items)):
+                    
+                    # Create LineItem with only the requested fields
+                    line_item_data = {
+                        "ticker": ticker,
+                        "report_period": item.get("report_period"),
+                        "period": period,
                         "currency": item.get("currency", "USD")
                     }
-                
-                # Add line item value to the group
-                for field in item.keys():
-                    if field not in ["ticker", "report_period", "period", "currency"]:
-                        grouped_by_period[period_key][field] = item[field]
-            
-            # Convert grouped data to LineItem objects if they contain all requested line items
-            for period_data in grouped_by_period.values():
-                if all(item in period_data for item in line_items):
-                    if period_data["report_period"] <= end_date and period_data["period"] == period:
-                        cached_items.append(LineItem(**period_data))
+                    for field in valid_line_items:
+                        value = item.get(field)
+                        # Convert Decimal to float for compatibility
+                        if hasattr(value, 'to_eng_string'):  # Check if it's a Decimal
+                            value = float(value)
+                        line_item_data[field] = value
+                    
+                    cached_items.append(LineItem(**line_item_data))
             
             # Sort by report_period in descending order and limit
             cached_items.sort(key=lambda x: x.report_period, reverse=True)
@@ -76,10 +94,16 @@ class LineItemsService:
                 return cached_items[:limit]
         
         # 2. Check the database (slower than memory, faster than API)
-        if db_items := get_line_items_db(ticker, line_items, end_date, period, limit):
+        if db_items := get_line_items_db(ticker, valid_line_items, end_date, period, limit):
+            # Convert Decimal values to float in database results
+            for item in db_items:
+                data = item.model_dump()
+                for field in valid_line_items:
+                    if field in data and hasattr(data[field], 'to_eng_string'):
+                        setattr(item, field, float(data[field]))
+            
             # Cache in memory for future requests
-            # We don't set directly because line items are stored differently in cache
-            # Instead, we'll update the cache during the API call below if needed
+            self._cache_line_items(ticker, db_items)
             return db_items
         
         # Return cached items if we have any (even if fewer than requested)
