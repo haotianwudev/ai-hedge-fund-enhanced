@@ -35,9 +35,9 @@ MODEL_NAME = "deepseek-chat"
 MODEL_PROVIDER = ModelProvider.DEEPSEEK.value
 INITIAL_CASH = 100000.0
 MARGIN_REQUIREMENT = 0.0
-SHOW_REASONING = False
-SHOW_AGENT_GRAPH = False
-SAVE_LOGS = False
+SHOW_REASONING = True
+SHOW_AGENT_GRAPH = True
+SAVE_LOGS = True
 
 
 def parse_hedge_fund_response(response):
@@ -166,7 +166,7 @@ if __name__ == "__main__":
     end_date = datetime.now().strftime("%Y-%m-%d")
     # Calculate 3 months before end_date
     end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
-    start_date = (end_date_obj - relativedelta(months=3)).strftime("%Y-%m-%d")
+    start_date = (end_date_obj - relativedelta(months=12)).strftime("%Y-%m-%d")
 
     # Initialize portfolio with cash amount and stock positions
     portfolio = {
