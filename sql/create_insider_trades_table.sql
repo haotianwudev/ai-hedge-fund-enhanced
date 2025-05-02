@@ -28,7 +28,23 @@ CREATE INDEX IF NOT EXISTS idx_insider_trades_name ON insider_trades(name);
 -- Add comment to table
 COMMENT ON TABLE insider_trades IS 'Stores insider trading data for companies';
 
--- Since insider trades might be amended and refiled, we don't create a unique constraint
--- But we do create a composite index for common queries
+-- Create a unique constraint on the group columns to prevent duplicates
+-- This allows us to identify records uniquely and update them rather than
+-- creating duplicates when reloading data
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'insider_trades_unique_constraint'
+    ) THEN
+        ALTER TABLE insider_trades ADD CONSTRAINT insider_trades_unique_constraint
+        UNIQUE (ticker, issuer, name, title, is_board_director, transaction_date, security_title, filing_date);
+    END IF;
+EXCEPTION
+    WHEN others THEN
+        RAISE NOTICE 'Error creating unique constraint: %', SQLERRM;
+END $$;
+
+-- Create additional composite index for common queries
 CREATE INDEX IF NOT EXISTS idx_insider_trades_ticker_name_transaction_date 
 ON insider_trades(ticker, name, transaction_date); 

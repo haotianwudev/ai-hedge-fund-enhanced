@@ -6,9 +6,11 @@ These functions can be used as replacements or fallbacks for the original API fu
 import os
 import datetime
 import psycopg2
-from psycopg2.extras import RealDictCursor
+import pandas as pd
+from psycopg2.extras import RealDictCursor, execute_values
 from src.data.models import CompanyFacts, Price, FinancialMetrics, LineItem, InsiderTrade, CompanyNews
 from dotenv import load_dotenv
+from colorama import Fore, Style
 
 # Load environment variables
 load_dotenv()
@@ -461,41 +463,60 @@ def save_line_items(ticker: str, line_items: list[LineItem]) -> bool:
         insert_count = 0
         for item in line_items:
             try:
+                # Convert object to dictionary
                 data = item.model_dump()
                 
-                # Extract standard fields
-                std_fields = {
-                    'ticker': data.get('ticker', ticker),  # Use provided ticker if not in item
-                    'report_period': data.get('report_period'),
-                    'period': data.get('period'),
-                    'currency': data.get('currency')
-                }
+                # Extract standard fields that are part of the table schema
+                ticker_value = data.get('ticker', ticker)  # Use provided ticker if not in item
+                report_period = data.get('report_period')
+                period = data.get('period')
+                currency = data.get('currency')
                 
-                # Process the remaining fields as line items
-                # Each field (except std_fields) becomes a separate row
+                # Start building the SQL query - add all known financial metrics
+                fields = ['ticker', 'report_period', 'period', 'currency']
+                values = [ticker_value, report_period, period, currency]
+                
+                # Add financial metrics that exist in the data
                 for field_name, field_value in data.items():
-                    if field_name in std_fields:
-                        continue  # Skip standard fields
-                        
-                    # Insert line item
-                    sql = """
-                    INSERT INTO line_items 
-                    (ticker, report_period, period, currency, line_item_name, line_item_value)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (ticker, report_period, period, line_item_name) DO UPDATE SET
-                        line_item_value = EXCLUDED.line_item_value,
-                        updated_at = CURRENT_TIMESTAMP
-                    """
+                    if field_name in ['ticker', 'report_period', 'period', 'currency']:
+                        continue  # Skip standard fields already added
                     
-                    cursor.execute(sql, (
-                        std_fields['ticker'],
-                        std_fields['report_period'],
-                        std_fields['period'],
-                        std_fields['currency'],
-                        field_name,
-                        field_value
-                    ))
-                    insert_count += 1
+                    # Only add fields that are financial metrics
+                    if field_name in [
+                        'cash_and_equivalents', 'current_assets', 'current_liabilities', 
+                        'outstanding_shares', 'total_assets', 'shareholders_equity', 
+                        'total_liabilities', 'goodwill_and_intangible_assets', 
+                        'total_debt', 'free_cash_flow', 'net_income',
+                        'dividends_and_other_cash_distributions', 'depreciation_and_amortization',
+                        'capital_expenditure', 'earnings_per_share', 'research_and_development',
+                        'operating_income', 'revenue', 'working_capital', 'operating_margin',
+                        'book_value_per_share', 'gross_margin', 'return_on_invested_capital',
+                        'ebitda'
+                    ]:
+                        fields.append(field_name)
+                        values.append(field_value)
+                
+                # Build the SQL query with fields that exist
+                placeholders = ', '.join(['%s'] * len(fields))
+                fields_str = ', '.join(fields)
+                
+                # Create update clause for the fields
+                update_clauses = []
+                for field in fields:
+                    if field not in ['ticker', 'report_period', 'period']:  # Skip key fields
+                        update_clauses.append(f"{field} = EXCLUDED.{field}")
+                update_str = ', '.join(update_clauses)
+                update_str += ", updated_at = CURRENT_TIMESTAMP"
+                
+                sql = f"""
+                INSERT INTO line_items ({fields_str})
+                VALUES ({placeholders})
+                ON CONFLICT (ticker, report_period, period) DO UPDATE SET
+                    {update_str}
+                """
+                
+                cursor.execute(sql, values)
+                insert_count += 1
                     
             except Exception as inner_e:
                 print(f"Error inserting line items for {ticker} on {item.report_period}: {inner_e}")
@@ -594,58 +615,82 @@ def save_insider_trades(trades: list[InsiderTrade]) -> bool:
         return False
         
     try:
+        # Convert all trades to dictionaries
+        trades_dicts = [trade.model_dump() for trade in trades]
+        
+        # Create a pandas DataFrame from the list of dictionaries
+        df = pd.DataFrame(trades_dicts)
+        
+        # Filter rows with valid transaction dates
+        df = df[df['transaction_date'].notna()]
+        
+        if df.empty:
+            print(f"No valid insider trades to save after filtering")
+            return False
+        
+        # Define the columns to group by
+        group_cols = [
+            'ticker', 'issuer', 'name', 'title', 'is_board_director', 
+            'transaction_date', 'security_title', 'filing_date'
+        ]
+        
+        # Define the columns to aggregate
+        agg_cols = [
+            'transaction_shares', 'transaction_price_per_share', 
+            'transaction_value', 'shares_owned_before_transaction', 
+            'shares_owned_after_transaction'
+        ]
+        
+        # Make sure all required columns exist in the dataframe
+        for col in group_cols + agg_cols:
+            if col not in df.columns:
+                df[col] = None
+        
+        # Group by the specified columns and aggregate the transaction data
+        # For transaction_price_per_share, use mean; for others, use sum
+        agg_dict = {col: 'sum' for col in agg_cols}
+        agg_dict['transaction_price_per_share'] = 'mean'  # Use mean for price
+        
+        # Perform grouping and aggregation
+        df_grouped = df.groupby(group_cols, dropna=False).agg(agg_dict).reset_index()
+        
+        # Add created_at and updated_at fields
+        current_time = datetime.datetime.now()
+        df_grouped['created_at'] = current_time
+        df_grouped['updated_at'] = current_time
+        
         # Connect to PostgreSQL
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Insert records
-        insert_count = 0
-        error_count = 0
-        last_error = None
+        # For each ticker, delete existing records for that ticker
+        # This is a safer and more reliable approach than trying to match on all fields
+        tickers = df_grouped['ticker'].unique()
         
-        for trade in trades:
-            try:
-                data = trade.model_dump()
-                
-                # Build field lists
-                fields = list(data.keys())
-                
-                # Generate placeholders
-                placeholders = ', '.join(['%s'] * len(fields))
-                fields_str = ', '.join(fields)
-                
-                # Build SQL query with ON CONFLICT to update existing records
-                # Unique constraint is on (ticker, name, transaction_date, filing_date)
-                update_fields = ', '.join([f"{field} = EXCLUDED.{field}" for field in fields])
-                update_fields += ", updated_at = CURRENT_TIMESTAMP"
-                
-                sql = f"""
-                INSERT INTO insider_trades ({fields_str})
-                VALUES ({placeholders})
-                ON CONFLICT (ticker, name, transaction_date, filing_date) DO UPDATE SET
-                    {update_fields}
-                """
-                
-                # Execute query in its own transaction
-                with conn:
-                    cursor.execute(sql, [data[field] for field in fields])
-                    insert_count += 1
-                
-            except Exception as inner_e:
-                error_count += 1
-                last_error = inner_e
-                conn.rollback()  # Ensure transaction is clean for next insert
+        for ticker in tickers:
+            cursor.execute("DELETE FROM insider_trades WHERE ticker = %s", (ticker,))
+            print(f"Deleted existing insider trades for {ticker}")
+        
+        # Now insert all the new records
+        columns = list(df_grouped.columns)
+        
+        # Convert DataFrame to list of tuples for insertion
+        values = [tuple(x) for x in df_grouped.values]
+        
+        # Insert all records at once using execute_values
+        insert_sql = f"INSERT INTO insider_trades ({', '.join(columns)}) VALUES %s"
+        execute_values(cursor, insert_sql, values)
+        
+        # Commit the transaction
+        conn.commit()
         
         # Close cursor and connection
         cursor.close()
         conn.close()
         
         # Print summary
-        print(f"Saved {insert_count} insider trade records")
-        if error_count > 0:
-            print(f"{Fore.YELLOW}Failed to save {error_count} records. Last error: {last_error}{Style.RESET_ALL}")
-        
-        return insert_count > 0
+        print(f"Saved {len(df_grouped)} insider trade records after deduplication")
+        return True
         
     except Exception as e:
         print(f"{Fore.RED}Error saving insider trades: {e}{Style.RESET_ALL}")

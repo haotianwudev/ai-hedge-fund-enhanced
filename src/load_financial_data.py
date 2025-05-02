@@ -36,6 +36,7 @@ from tools.api_db import (
     save_insider_trades,
     save_line_items
 )
+from tools.line_items_list import get_all_line_items
 
 # Initialize colorama
 init(autoreset=True)
@@ -266,14 +267,12 @@ def load_financial_data(tickers, start_date, end_date, verbose=False):
                 print(f"{Fore.RED}No insider trades available{Style.RESET_ALL}")
                 results["trades_failed"].append(ticker)
 
-            # Fetch line items (using common financial metrics)
-            common_line_items = [
-                "revenue", "gross_profit", "operating_income", 
-                "net_income", "total_assets", "total_liabilities"
-            ]
+            # Fetch line items (using all financial metrics defined in line_items_list.py)
             print(f"Fetching line items for {Fore.YELLOW}{ticker}{Style.RESET_ALL}... ", end="", flush=True)
             try:
-                line_items = search_line_items(ticker, common_line_items, end_date)
+                # Get all line items from line_items_list.py
+                all_line_items = get_all_line_items()
+                line_items = search_line_items(ticker, all_line_items, end_date)
                 if line_items:
                     if save_line_items_to_db(ticker, line_items):
                         print(f"{Fore.GREEN}Line items saved successfully ({len(line_items)} records){Style.RESET_ALL}")
@@ -306,7 +305,7 @@ def get_date_range(start_date, end_date):
     if not start_date:
         # Default to 3 months before end date
         end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-        start_dt = end_dt - timedelta(days=90)
+        start_dt = end_dt - timedelta(days=1825)
         start_date = start_dt.strftime("%Y-%m-%d")
     
     return start_date, end_date
@@ -322,7 +321,7 @@ def main():
     parser.add_argument(
         "--start-date",
         type=str,
-        help="Start date (YYYY-MM-DD). Defaults to 3 months before end date",
+        help="Start date (YYYY-MM-DD). Defaults to 5 years before end date",
     )
     parser.add_argument("--end-date", type=str, help="End date (YYYY-MM-DD). Defaults to today")
     parser.add_argument("--verbose", action="store_true", help="Show detailed information")
