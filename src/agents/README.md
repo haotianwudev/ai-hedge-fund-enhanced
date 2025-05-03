@@ -99,6 +99,72 @@ gap = (intrinsic_value - market_cap) / market_cap
 }
 ```
 
+# Fundamental Analysis Agent Documentation
+
+## Overview
+The Fundamental Analysis Agent evaluates companies across four key dimensions to generate investment signals.
+
+## Core Methodology
+
+### 1. Profitability Analysis (33% weight)
+- **Return on Equity**: >15% is strong
+- **Net Margin**: >20% is healthy  
+- **Operating Margin**: >15% is efficient
+- **Signal**: Bullish if ≥2 metrics meet thresholds
+
+### 2. Growth Analysis (33% weight)
+- **Revenue Growth**: >10% is strong
+- **Earnings Growth**: >10% is strong
+- **Book Value Growth**: >10% is strong
+- **Signal**: Bullish if ≥2 metrics meet thresholds
+
+### 3. Financial Health (17% weight)
+- **Current Ratio**: >1.5 indicates liquidity
+- **Debt/Equity**: <0.5 is conservative
+- **FCF Conversion**: FCF >80% of EPS
+- **Signal**: Bullish if ≥2 metrics meet thresholds
+
+### 4. Valuation Ratios (17% weight)
+- **P/E Ratio**: <25 is reasonable
+- **P/B Ratio**: <3 is reasonable
+- **P/S Ratio**: <5 is reasonable
+- **Signal**: Bearish if ≥2 metrics exceed thresholds
+
+## Signal Generation
+1. For each ticker:
+   - Calculate scores for all four dimensions
+   - Determine signals for each dimension
+   - Count bullish/bearish signals
+
+2. Final Signal:
+   - **Bullish**: More bullish signals
+   - **Bearish**: More bearish signals  
+   - **Neutral**: Equal signals
+
+3. Confidence:
+   - Based on ratio of dominant signals to total signals
+   - Scaled from 0-100%
+
+## Output Example
+```json
+{
+  "AAPL": {
+    "signal": "bullish",
+    "confidence": 75,
+    "reasoning": {
+      "profitability_signal": {
+        "signal": "bullish",
+        "details": "ROE: 18.5%, Net Margin: 22.1%, Op Margin: 25.3%"
+      },
+      "growth_signal": {
+        "signal": "neutral", 
+        "details": "Revenue Growth: 8.2%, Earnings Growth: 12.5%"
+      }
+    }
+  }
+}
+```
+
 # Warren Buffett Agent Documentation
 
 ## Overview

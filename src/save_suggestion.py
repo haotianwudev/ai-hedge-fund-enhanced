@@ -206,7 +206,7 @@ if __name__ == "__main__":
     
     # Use all analysts
     #selected_analysts = list(ANALYST_CONFIG.keys())
-    selected_analysts = ['valuation_analyst'] 
+    selected_analysts = ['fundamentals_analyst'] 
     
     print(f"\nUsing all analysts: {', '.join(Fore.GREEN + ANALYST_CONFIG[choice]['display_name'] + Style.RESET_ALL for choice in selected_analysts)}\n")
     
