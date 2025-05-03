@@ -236,6 +236,144 @@ The Sentiment Agent analyzes market sentiment from two key sources:
   }
 }
 
+# Technical Analysis Agent Documentation
+
+## Overview
+The Technical Analysis Agent combines multiple quantitative trading strategies to generate signals based on price action and market statistics. It uses an ensemble approach with weighted signals from five different methodologies.
+
+## Core Strategies
+
+### 1. Trend Following (25% weight)
+**Rationale**: Markets trend about 30% of the time, and catching these trends early can generate significant returns. The multiple EMA approach identifies trends across different time horizons while ADX filters out weak trends that may reverse.
+
+**Methodology**:
+- Uses EMA crossovers (8/21/55 days) for trend direction
+- ADX indicator (14-day) for trend strength
+- Confirms with price position relative to EMAs
+
+**Signals**:
+- Bullish: EMAs in uptrend (8>21>55) with ADX > 25
+- Bearish: EMAs in downtrend (8<21<55) with ADX > 25  
+- Neutral: Mixed signals or weak trend (ADX < 25)
+
+### 2. Mean Reversion (20% weight)  
+**Rationale**: Prices tend to revert to mean values over time, especially in range-bound markets. The z-score approach identifies extreme moves likely to reverse, while Bollinger Bands provide visual confirmation levels.
+
+**Methodology**:
+- Z-score measures deviation from 50-day mean
+- Bollinger Bands (20-day, 2σ) identify overbought/oversold levels
+- RSI (14/28-day) confirms momentum extremes
+
+**Signals**:
+- Bullish: z-score < -2 (2σ below mean) and RSI < 30
+- Bearish: z-score > 2 (2σ above mean) and RSI > 70
+- Neutral: Between thresholds
+
+### 3. Momentum (25% weight)
+**Rationale**: Momentum tends to persist in the short-to-medium term. The multi-timeframe approach captures momentum at different scales while volume confirms institutional participation.
+
+**Methodology**:  
+- Price momentum across 1/3/6 month windows
+- Volume momentum confirms with 21-day average
+- Weighted combination favors shorter-term signals
+
+**Signals**:
+- Bullish: Strong positive momentum (>5%) with volume support
+- Bearish: Strong negative momentum (<-5%) with volume support
+- Neutral: Weak or conflicting momentum
+
+### 4. Volatility Analysis (15% weight)
+**Rationale**: Volatility tends to cluster and mean-revert. Identifying volatility regimes helps anticipate breakouts or consolidations.
+
+**Methodology**:
+- Historical volatility (21-day annualized)  
+- Volatility ratio vs 63-day average
+- ATR ratio for normalized volatility measure
+
+**Signals**:
+- Bullish: Low vol regime (ratio < 0.8) with z-score < -1
+- Bearish: High vol regime (ratio > 1.2) with z-score > 1  
+- Neutral: Normal volatility range
+
+### 5. Statistical Arbitrage (15% weight)
+**Rationale**: Markets exhibit different statistical properties that can indicate likely future behavior. This strategy combines multiple quantitative approaches:
+
+1. **Hurst Exponent Analysis**:
+   - Measures the tendency of prices to mean-revert or trend
+   - H < 0.5: Mean-reverting series (likely to reverse)
+   - H = 0.5: Random walk (no predictable pattern)
+   - H > 0.5: Trending series (likely to continue)
+   - Calculated using Rescaled Range (R/S) analysis:
+     1. Takes logarithmically spaced time windows (10-100 days)
+     2. For each window, calculates normalized range (R/S)
+     3. Fits log(R/S) vs log(window size) to get slope (Hurst)
+   - More robust than simple autocorrelation tests
+
+2. **Distribution Analysis**:
+   - Skewness detects asymmetric return distributions
+     - Positive skew: More large positive returns
+     - Negative skew: More large negative returns
+   - Kurtosis measures tail risk (fat tails = higher risk)
+
+**Educational Insight**:
+- The Hurst exponent helps identify when traditional technical patterns may work better:
+  - Mean-reverting strategies perform best when H < 0.4
+  - Trend-following works best when H > 0.6
+- Combined with skewness, it can detect potential reversals:
+  - High positive skew + low H → Likely mean reversion downward
+  - High negative skew + low H → Likely mean reversion upward
+
+**Signals**:
+- Bullish: 
+  - Strong mean-reversion (H<0.4) 
+  - Positive skew (>1) suggesting upside potential
+- Bearish: 
+  - Strong mean-reversion (H<0.4)
+  - Negative skew (<-1) suggesting downside risk  
+- Neutral: 
+  - Random walk (H≈0.5) 
+  - Or trending behavior (H>0.5)
+  - Or insignificant skew
+
+**Example Interpretation**:
+- H=0.35, skew=1.2 → Strong bullish mean-reversion signal
+- H=0.55, skew=0.3 → Neutral trending market
+- H=0.4, skew=-1.5 → Strong bearish mean-reversion signal
+
+## Signal Combination
+The agent combines these strategies using their weights and confidence scores to generate a final signal. This ensemble approach:
+- Reduces reliance on any single indicator
+- Captures different market regimes  
+- Provides more robust signals than individual strategies
+
+## Output Example
+```json
+{
+  "AAPL": {
+    "signal": "bullish", 
+    "confidence": 82,
+    "strategy_signals": {
+      "trend_following": {
+        "signal": "bullish",
+        "confidence": 85,
+        "metrics": {
+          "adx": 32.5,
+          "trend_strength": 0.85
+        }
+      },
+      "mean_reversion": {
+        "signal": "neutral", 
+        "confidence": 50,
+        "metrics": {
+          "z_score": -1.2,
+          "rsi_14": 45.3
+        }
+      }
+    }
+  }
+}
+```
+
 # Warren Buffett Agent Documentation
 
 ## Overview

@@ -39,6 +39,7 @@ MARGIN_REQUIREMENT = 0.0
 SHOW_REASONING = True
 SHOW_AGENT_GRAPH = True
 SAVE_LOGS = True
+ANALYSTS = ['technical_analyst'] 
 
 
 def parse_hedge_fund_response(response):
@@ -109,6 +110,8 @@ def run_hedge_fund(
             save_fundamentals_data(result["analyst_signals"]["fundamentals_agent"], end_date)
         if "sentiment_agent" in result["analyst_signals"]:
             save_sentiment_data(result["analyst_signals"]["sentiment_agent"])
+        if "technical_analyst_agent" in result["analyst_signals"]:
+            save_technical_data(result["analyst_signals"]["technical_analyst_agent"], end_date)
 
         return result
     finally:
@@ -350,6 +353,155 @@ def save_valuation_data(valuation_data: dict):
         conn.close()
 
 
+def save_technical_data(technical_data: dict, biz_date: str):
+    """Save technical analysis data to database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        for ticker, data in technical_data.items():
+            strategies = data["strategy_signals"]
+            
+            cursor.execute(
+                """
+                INSERT INTO technicals (
+                    ticker, biz_date, signal, confidence,
+                    -- Trend Following
+                    trend_signal, trend_confidence, trend_score,
+                    trend_adx_threshold, trend_ema_crossover_threshold,
+                    ema_8, ema_21, ema_55, adx, di_plus, di_minus,
+                    -- Mean Reversion
+                    mr_signal, mr_confidence, mr_score,
+                    mr_z_score_threshold, mr_rsi_low_threshold, mr_rsi_high_threshold,
+                    z_score, bb_upper, bb_lower, rsi_14, rsi_28,
+                    -- Momentum
+                    momentum_signal, momentum_confidence, momentum_score,
+                    momentum_min_strength, momentum_volume_ratio_threshold,
+                    mom_1m, mom_3m, mom_6m, volume_ratio,
+                    -- Volatility
+                    volatility_signal, volatility_confidence, volatility_score,
+                    volatility_low_regime, volatility_high_regime, volatility_z_threshold,
+                    hist_vol_21d, vol_regime, vol_z_score, atr_ratio,
+                    -- Statistical Arbitrage
+                    stat_arb_signal, stat_arb_confidence, stat_arb_score,
+                    stat_arb_hurst_threshold, stat_arb_skew_threshold,
+                    hurst_exp, skewness, kurtosis
+                ) VALUES (
+                    %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s
+                )
+                ON CONFLICT (ticker, biz_date) 
+                DO UPDATE SET
+                    signal = EXCLUDED.signal,
+                    confidence = EXCLUDED.confidence,
+                    -- Trend Following
+                    trend_signal = EXCLUDED.trend_signal,
+                    trend_confidence = EXCLUDED.trend_confidence,
+                    trend_score = EXCLUDED.trend_score,
+                    ema_8 = EXCLUDED.ema_8,
+                    ema_21 = EXCLUDED.ema_21,
+                    ema_55 = EXCLUDED.ema_55,
+                    adx = EXCLUDED.adx,
+                    di_plus = EXCLUDED.di_plus,
+                    di_minus = EXCLUDED.di_minus,
+                    -- Mean Reversion
+                    mr_signal = EXCLUDED.mr_signal,
+                    mr_confidence = EXCLUDED.mr_confidence,
+                    mr_score = EXCLUDED.mr_score,
+                    z_score = EXCLUDED.z_score,
+                    bb_upper = EXCLUDED.bb_upper,
+                    bb_lower = EXCLUDED.bb_lower,
+                    rsi_14 = EXCLUDED.rsi_14,
+                    rsi_28 = EXCLUDED.rsi_28,
+                    -- Momentum
+                    momentum_signal = EXCLUDED.momentum_signal,
+                    momentum_confidence = EXCLUDED.momentum_confidence,
+                    momentum_score = EXCLUDED.momentum_score,
+                    mom_1m = EXCLUDED.mom_1m,
+                    mom_3m = EXCLUDED.mom_3m,
+                    mom_6m = EXCLUDED.mom_6m,
+                    volume_ratio = EXCLUDED.volume_ratio,
+                    -- Volatility
+                    volatility_signal = EXCLUDED.volatility_signal,
+                    volatility_confidence = EXCLUDED.volatility_confidence,
+                    volatility_score = EXCLUDED.volatility_score,
+                    hist_vol_21d = EXCLUDED.hist_vol_21d,
+                    vol_regime = EXCLUDED.vol_regime,
+                    vol_z_score = EXCLUDED.vol_z_score,
+                    atr_ratio = EXCLUDED.atr_ratio,
+                    -- Statistical Arbitrage
+                    stat_arb_signal = EXCLUDED.stat_arb_signal,
+                    stat_arb_confidence = EXCLUDED.stat_arb_confidence,
+                    stat_arb_score = EXCLUDED.stat_arb_score,
+                    hurst_exp = EXCLUDED.hurst_exp,
+                    skewness = EXCLUDED.skewness,
+                    kurtosis = EXCLUDED.kurtosis,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (
+                    ticker, biz_date, data["signal"], data["confidence"],
+                    # Trend Following
+                    strategies["trend_following"]["signal"],
+                    strategies["trend_following"]["confidence"],
+                    strategies["trend_following"]["metrics"].get("trend_strength", 0),
+                    25.0, True,  # Default thresholds
+                    strategies["trend_following"]["metrics"].get("ema_8", 0),
+                    strategies["trend_following"]["metrics"].get("ema_21", 0),
+                    strategies["trend_following"]["metrics"].get("ema_55", 0),
+                    strategies["trend_following"]["metrics"].get("adx", 0),
+                    strategies["trend_following"]["metrics"].get("di_plus", 0),
+                    strategies["trend_following"]["metrics"].get("di_minus", 0),
+                    # Mean Reversion
+                    strategies["mean_reversion"]["signal"],
+                    strategies["mean_reversion"]["confidence"],
+                    strategies["mean_reversion"]["metrics"].get("z_score", 0),
+                    2.0, 30.0, 70.0,  # Default thresholds
+                    strategies["mean_reversion"]["metrics"].get("z_score", 0),
+                    strategies["mean_reversion"]["metrics"].get("bb_upper", 0),
+                    strategies["mean_reversion"]["metrics"].get("bb_lower", 0),
+                    strategies["mean_reversion"]["metrics"].get("rsi_14", 0),
+                    strategies["mean_reversion"]["metrics"].get("rsi_28", 0),
+                    # Momentum
+                    strategies["momentum"]["signal"],
+                    strategies["momentum"]["confidence"],
+                    strategies["momentum"]["metrics"].get("momentum_6m", 0),
+                    0.05, 1.0,  # Default thresholds
+                    strategies["momentum"]["metrics"].get("momentum_1m", 0),
+                    strategies["momentum"]["metrics"].get("momentum_3m", 0),
+                    strategies["momentum"]["metrics"].get("momentum_6m", 0),
+                    strategies["momentum"]["metrics"].get("volume_momentum", 0),
+                    # Volatility
+                    strategies["volatility"]["signal"],
+                    strategies["volatility"]["confidence"],
+                    strategies["volatility"]["metrics"].get("volatility_z_score", 0),
+                    0.8, 1.2, 1.0,  # Default thresholds
+                    strategies["volatility"]["metrics"].get("historical_volatility", 0),
+                    strategies["volatility"]["metrics"].get("volatility_regime", 0),
+                    strategies["volatility"]["metrics"].get("volatility_z_score", 0),
+                    strategies["volatility"]["metrics"].get("atr_ratio", 0),
+                    # Statistical Arbitrage
+                    strategies["statistical_arbitrage"]["signal"],
+                    strategies["statistical_arbitrage"]["confidence"],
+                    strategies["statistical_arbitrage"]["metrics"].get("hurst_exponent", 0.5),
+                    0.4, 1.0,  # Default thresholds
+                    strategies["statistical_arbitrage"]["metrics"].get("hurst_exponent", 0.5),
+                    strategies["statistical_arbitrage"]["metrics"].get("skewness", 0),
+                    strategies["statistical_arbitrage"]["metrics"].get("kurtosis", 0)
+                )
+            )
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"Error saving technical data: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
 if __name__ == "__main__":
     # Configure logging
     configure_logging(save_logs=SAVE_LOGS)
@@ -359,7 +511,7 @@ if __name__ == "__main__":
     
     # Use all analysts
     #selected_analysts = list(ANALYST_CONFIG.keys())
-    selected_analysts = ['sentiment_analyst'] 
+    selected_analysts = ANALYSTS
     
     print(f"\nUsing all analysts: {', '.join(Fore.GREEN + ANALYST_CONFIG[choice]['display_name'] + Style.RESET_ALL for choice in selected_analysts)}\n")
     

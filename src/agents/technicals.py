@@ -26,7 +26,7 @@ def technical_analyst_agent(state: AgentState):
     tickers = data["tickers"]
 
     # Initialize analysis for each ticker
-    technical_analysis = {}
+    technicals = {}
 
     for ticker in tickers:
         progress.update_status("technical_analyst_agent", ticker, "Analyzing price data")
@@ -82,7 +82,7 @@ def technical_analyst_agent(state: AgentState):
         )
 
         # Generate detailed analysis report for this ticker
-        technical_analysis[ticker] = {
+        technicals[ticker] = {
             "signal": combined_signal["signal"],
             "confidence": round(combined_signal["confidence"] * 100),
             "strategy_signals": {
@@ -117,15 +117,15 @@ def technical_analyst_agent(state: AgentState):
 
     # Create the technical analyst message
     message = HumanMessage(
-        content=json.dumps(technical_analysis),
+        content=json.dumps(technicals),
         name="technical_analyst_agent",
     )
 
     if state["metadata"]["show_reasoning"]:
-        show_agent_reasoning(technical_analysis, "Technical Analyst")
+        show_agent_reasoning(technicals, "Technical Analyst")
 
     # Add the signal to the analyst_signals list
-    state["data"]["analyst_signals"]["technical_analyst_agent"] = technical_analysis
+    state["data"]["analyst_signals"]["technical_analyst_agent"] = technicals
 
     return {
         "messages": state["messages"] + [message],
@@ -168,6 +168,11 @@ def calculate_trend_signals(prices_df):
         "metrics": {
             "adx": float(adx["adx"].iloc[-1]),
             "trend_strength": float(trend_strength),
+            "ema_8": float(ema_8.iloc[-1]),
+            "ema_21": float(ema_21.iloc[-1]),
+            "ema_55": float(ema_55.iloc[-1]),
+            "di_plus": float(adx["+di"].iloc[-1]),
+            "di_minus": float(adx["-di"].iloc[-1])
         },
     }
 
@@ -210,6 +215,8 @@ def calculate_mean_reversion_signals(prices_df):
             "price_vs_bb": float(price_vs_bb),
             "rsi_14": float(rsi_14.iloc[-1]),
             "rsi_28": float(rsi_28.iloc[-1]),
+            "bb_upper": float(bb_upper.iloc[-1]),
+            "bb_lower": float(bb_lower.iloc[-1]),
         },
     }
 
@@ -255,6 +262,8 @@ def calculate_momentum_signals(prices_df):
             "momentum_3m": float(mom_3m.iloc[-1]),
             "momentum_6m": float(mom_6m.iloc[-1]),
             "volume_momentum": float(volume_momentum.iloc[-1]),
+            "current_volume": float(prices_df["volume"].iloc[-1]),
+            "volume_ma_21": float(volume_ma.iloc[-1]),
         },
     }
 
@@ -302,6 +311,7 @@ def calculate_volatility_signals(prices_df):
             "volatility_regime": float(current_vol_regime),
             "volatility_z_score": float(vol_z),
             "atr_ratio": float(atr_ratio.iloc[-1]),
+            "atr": float(atr.iloc[-1]),
         },
     }
 
@@ -339,6 +349,7 @@ def calculate_stat_arb_signals(prices_df):
         "confidence": confidence,
         "metrics": {
             "hurst_exponent": float(hurst),
+            "stat_arb_score": float((0.5 - hurst) * 2),
             "skewness": float(skew.iloc[-1]),
             "kurtosis": float(kurt.iloc[-1]),
         },
@@ -480,28 +491,71 @@ def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
     return true_range.rolling(period).mean()
 
 
-def calculate_hurst_exponent(price_series: pd.Series, max_lag: int = 20) -> float:
+def calculate_hurst_exponent(price_series: pd.Series, min_lag: int = 10, max_lag: int = 100) -> float:
     """
-    Calculate Hurst Exponent to determine long-term memory of time series
+    Calculate Hurst Exponent using rescaled range (R/S) analysis
     H < 0.5: Mean reverting series
     H = 0.5: Random walk
     H > 0.5: Trending series
 
     Args:
-        price_series: Array-like price data
-        max_lag: Maximum lag for R/S calculation
+        price_series: Price data series
+        min_lag: Minimum window size for R/S calculation
+        max_lag: Maximum window size for R/S calculation
 
     Returns:
-        float: Hurst exponent
+        float: Hurst exponent between 0 and 1
     """
-    lags = range(2, max_lag)
-    # Add small epsilon to avoid log(0)
-    tau = [max(1e-8, np.sqrt(np.std(np.subtract(price_series[lag:], price_series[:-lag])))) for lag in lags]
-
-    # Return the Hurst exponent from linear fit
+    if len(price_series) < max_lag:
+        print(f"Debug - Hurst: Not enough data (len={len(price_series)}, min_required={max_lag})")
+        return 0.5  # Not enough data
+    
+    # Calculate log returns
+    returns = np.log(price_series).diff().dropna()
+    if len(returns) < max_lag:
+        return 0.5
+        
+    # Create logarithmically spaced lags
+    min_log = math.log(min_lag)
+    max_log = math.log(min(max_lag, len(returns)//2))
+    log_lags = np.linspace(min_log, max_log, num=20)
+    lags = [int(math.exp(x)) for x in log_lags]
+    lags = sorted(list(set(lags)))  # Remove duplicates
+    
+    rs_values = []
+    valid_lags = []
+    
+    for lag in lags:
+        # Split the series into chunks
+        chunks = [returns[i:i+lag] for i in range(0, len(returns), lag)]
+        
+        for chunk in chunks:
+            if len(chunk) < 2:
+                continue
+                
+            # Calculate mean-adjusted series
+            mean_adj = chunk - chunk.mean()
+            # Calculate cumulative deviation
+            cumulative_dev = mean_adj.cumsum()
+            # Calculate range
+            r = cumulative_dev.max() - cumulative_dev.min()
+            # Calculate standard deviation
+            s = chunk.std()
+            
+            if s > 0:
+                rs_values.append(r / s)
+                valid_lags.append(lag)
+    
+    if len(rs_values) < 2:
+        print(f"Debug - Hurst: Not enough valid RS values ({len(rs_values)})")
+        return 0.5
+    
+    # Calculate Hurst exponent from log-log plot
+    lags = np.array(valid_lags)
     try:
-        reg = np.polyfit(np.log(lags), np.log(tau), 1)
-        return reg[0]  # Hurst exponent is the slope
-    except (ValueError, RuntimeWarning):
-        # Return 0.5 (random walk) if calculation fails
+        hurst, _ = np.polyfit(np.log(lags), np.log(rs_values), 1)
+        # Bound the result between 0 and 1
+        return max(0.0, min(1.0, hurst))
+    except Exception as e:
+        print(f"Debug - Hurst calculation failed: {str(e)}")
         return 0.5
