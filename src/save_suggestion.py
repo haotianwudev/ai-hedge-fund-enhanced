@@ -107,6 +107,8 @@ def run_hedge_fund(
             save_valuation_data(result["analyst_signals"]["valuation_agent"])
         if "fundamentals_agent" in result["analyst_signals"]:
             save_fundamentals_data(result["analyst_signals"]["fundamentals_agent"], end_date)
+        if "sentiment_agent" in result["analyst_signals"]:
+            save_sentiment_data(result["analyst_signals"]["sentiment_agent"])
 
         return result
     finally:
@@ -245,6 +247,63 @@ def save_fundamentals_data(fundamentals_data: dict, biz_date: str):
         conn.close()
 
 
+def save_sentiment_data(sentiment_data: dict):
+    """Save sentiment data to the database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        for ticker, data in sentiment_data.items():
+            detail = data["detail"]
+            cursor.execute(
+                """
+                INSERT INTO sentiment (
+                    ticker, biz_date, overall_signal, confidence,
+                    insider_total, insider_bullish, insider_bearish,
+                    insider_value_total, insider_value_bullish, insider_value_bearish,
+                    insider_weight, news_total, news_bullish, news_bearish, news_neutral,
+                    news_weight, weighted_bullish, weighted_bearish
+                ) VALUES (
+                    %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s
+                )
+                ON CONFLICT (ticker, biz_date) 
+                DO UPDATE SET
+                    overall_signal = EXCLUDED.overall_signal,
+                    confidence = EXCLUDED.confidence,
+                    insider_total = EXCLUDED.insider_total,
+                    insider_bullish = EXCLUDED.insider_bullish,
+                    insider_bearish = EXCLUDED.insider_bearish,
+                    insider_value_total = EXCLUDED.insider_value_total,
+                    insider_value_bullish = EXCLUDED.insider_value_bullish,
+                    insider_value_bearish = EXCLUDED.insider_value_bearish,
+                    news_total = EXCLUDED.news_total,
+                    news_bullish = EXCLUDED.news_bullish,
+                    news_bearish = EXCLUDED.news_bearish,
+                    news_neutral = EXCLUDED.news_neutral,
+                    weighted_bullish = EXCLUDED.weighted_bullish,
+                    weighted_bearish = EXCLUDED.weighted_bearish,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (
+                    ticker, detail["biz_date"], data["signal"], data["confidence"],
+                    detail["insider_total"], detail["insider_bullish"], detail["insider_bearish"],
+                    detail["insider_value_total"], detail["insider_value_bullish"], detail["insider_value_bearish"],
+                    detail["insider_weight"], detail["news_total"], detail["news_bullish"], detail["news_bearish"], detail["news_neutral"],
+                    detail["news_weight"], detail["weighted_bullish"], detail["weighted_bearish"]
+                )
+            )
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"Error saving sentiment data: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
 def save_valuation_data(valuation_data: dict):
     """Save valuation data to the database with UPSERT functionality."""
     conn = get_db_connection()
@@ -300,7 +359,7 @@ if __name__ == "__main__":
     
     # Use all analysts
     #selected_analysts = list(ANALYST_CONFIG.keys())
-    selected_analysts = ['fundamentals_analyst'] 
+    selected_analysts = ['sentiment_analyst'] 
     
     print(f"\nUsing all analysts: {', '.join(Fore.GREEN + ANALYST_CONFIG[choice]['display_name'] + Style.RESET_ALL for choice in selected_analysts)}\n")
     

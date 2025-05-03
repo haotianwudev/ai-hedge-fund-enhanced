@@ -181,8 +181,12 @@ The Sentiment Agent analyzes market sentiment from two key sources:
 ## Core Methodology
 
 ### Insider Trading Analysis
-- **Bullish Signal**: Net buying activity (positive transaction shares)
-- **Bearish Signal**: Net selling activity (negative transaction shares)
+- **Bullish Signal**: Buying activity (positive transaction shares)
+- **Bearish Signal**: Selling activity (negative transaction shares)
+- **Transaction Values**:
+  - Bullish: Sum of buy transaction values (positive)
+  - Bearish: Sum of sell transaction values (negative)
+  - Total: Net of bullish and bearish values
 - Data from past 1000 insider transactions
 
 ### News Sentiment Analysis
@@ -194,6 +198,7 @@ The Sentiment Agent analyzes market sentiment from two key sources:
 ### Signal Generation Process
 1. For each ticker:
    - Count bullish/bearish signals from both sources
+   - Calculate transaction value sums (bullish positive, bearish negative)
    - Apply weights (30% insider, 70% news)
    - Calculate weighted signal counts:
      ```
@@ -214,7 +219,20 @@ The Sentiment Agent analyzes market sentiment from two key sources:
   "AAPL": {
     "signal": "bullish",
     "confidence": 75,
-    "reasoning": "Weighted Bullish signals: 42.3, Weighted Bearish signals: 28.1"
+    "detail": {
+      "insider_total": 42,
+      "insider_bullish": 30,
+      "insider_bearish": 12,
+      "insider_value_total": 1250000.0,
+      "insider_value_bullish": 1500000.0,
+      "insider_value_bearish": -250000.0,
+      "news_total": 85,
+      "news_bullish": 45,
+      "news_bearish": 15,
+      "news_neutral": 25,
+      "weighted_bullish": 42.3,
+      "weighted_bearish": 28.1
+    }
   }
 }
 

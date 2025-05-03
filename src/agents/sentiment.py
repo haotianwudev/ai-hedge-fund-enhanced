@@ -31,9 +31,15 @@ def sentiment_agent(state: AgentState):
 
         progress.update_status("sentiment_agent", ticker, "Analyzing trading patterns")
 
-        # Get the signals from the insider trades
+        # Get the signals and values from the insider trades
         transaction_shares = pd.Series([t.transaction_shares for t in insider_trades]).dropna()
+        transaction_values = pd.Series([t.transaction_value for t in insider_trades]).dropna()
         insider_signals = np.where(transaction_shares < 0, "bearish", "bullish").tolist()
+        
+        # Calculate insider value metrics (bearish values are negative)
+        insider_value_bullish = transaction_values[transaction_shares > 0].sum()
+        insider_value_bearish = -transaction_values[transaction_shares < 0].sum()  # Negative for sells
+        insider_value_total = insider_value_bullish + insider_value_bearish  # Net of buys and sells
 
         progress.update_status("sentiment_agent", ticker, "Fetching company news")
 
@@ -77,7 +83,23 @@ def sentiment_agent(state: AgentState):
         sentiment_analysis[ticker] = {
             "signal": overall_signal,
             "confidence": confidence,
-            "reasoning": reasoning,
+            "detail": {
+                "insider_total": len(insider_signals),
+                "insider_bullish": insider_signals.count("bullish"),
+                "insider_bearish": insider_signals.count("bearish"),
+                "insider_value_total": float(insider_value_total),
+                "insider_value_bullish": float(insider_value_bullish),
+                "insider_value_bearish": float(insider_value_bearish),
+                "insider_weight": 0.3,
+                "news_total": len(news_signals),
+                "news_bullish": news_signals.count("bullish"),
+                "news_bearish": news_signals.count("bearish"),
+                "news_neutral": news_signals.count("neutral"),
+                "news_weight": 0.7,
+                "weighted_bullish": bullish_signals,
+                "weighted_bearish": bearish_signals,
+                "biz_date": end_date
+            }
         }
 
         progress.update_status("sentiment_agent", ticker, "Done")
