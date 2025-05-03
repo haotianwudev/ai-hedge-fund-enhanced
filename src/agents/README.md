@@ -125,25 +125,31 @@ The Fundamental Analysis Agent evaluates companies across four key dimensions to
 - **Signal**: Bullish if ≥2 metrics meet thresholds
 
 ### 4. Valuation Ratios (17% weight)
-- **P/E Ratio**: <25 is reasonable
-- **P/B Ratio**: <3 is reasonable
-- **P/S Ratio**: <5 is reasonable
-- **Signal**: Bearish if ≥2 metrics exceed thresholds
+- **P/E Ratio**: <25 is reasonable (bearish if >25)
+- **P/B Ratio**: <3 is reasonable (bearish if >3)  
+- **P/S Ratio**: <5 is reasonable (bearish if >5)
+- **Signal Calculation**:
+  - Bearish if ≥2 ratios exceed thresholds
+  - Bullish if 0 ratios exceed thresholds
+  - Neutral if 1 ratio exceeds threshold
 
 ## Signal Generation
-1. For each ticker:
-   - Calculate scores for all four dimensions
-   - Determine signals for each dimension
-   - Count bullish/bearish signals
+1. For each ticker and dimension:
+   - Calculate metrics against thresholds
+   - Count how many metrics meet/exceed thresholds
+   - Determine dimension signal:
+     - Bullish if ≥2 metrics meet thresholds (or 0 exceed for valuation)
+     - Bearish if 0 metrics meet thresholds (or ≥2 exceed for valuation)
+     - Neutral otherwise
 
 2. Final Signal:
-   - **Bullish**: More bullish signals
-   - **Bearish**: More bearish signals  
-   - **Neutral**: Equal signals
+   - **Bullish**: More bullish than bearish dimension signals
+   - **Bearish**: More bearish than bullish dimension signals
+   - **Neutral**: Equal bullish/bearish signals
 
 3. Confidence:
-   - Based on ratio of dominant signals to total signals
-   - Scaled from 0-100%
+   - Calculated as: (dominant_signals / total_signals) * 100
+   - Example: 3 bullish, 1 bearish → 75% confidence
 
 ## Output Example
 ```json

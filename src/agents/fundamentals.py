@@ -107,10 +107,10 @@ def fundamentals_agent(state: AgentState):
             (pb_ratio, 3),  # Reasonable P/B ratio
             (ps_ratio, 5),  # Reasonable P/S ratio
         ]
-        price_ratio_score = sum(metric is not None and metric > threshold for metric, threshold in thresholds)
+        valuation_score = sum(metric is not None and metric > threshold for metric, threshold in thresholds)
 
-        signals.append("bearish" if price_ratio_score >= 2 else "bullish" if price_ratio_score == 0 else "neutral")
-        reasoning["price_ratios_signal"] = {
+        signals.append("bearish" if valuation_score >= 2 else "bullish" if valuation_score == 0 else "neutral")
+        reasoning["valuation_signal"] = {
             "signal": signals[3],
             "details": (f"P/E: {pe_ratio:.2f}" if pe_ratio else "P/E: N/A") + ", " + (f"P/B: {pb_ratio:.2f}" if pb_ratio else "P/B: N/A") + ", " + (f"P/S: {ps_ratio:.2f}" if ps_ratio else "P/S: N/A"),
         }
@@ -131,10 +131,44 @@ def fundamentals_agent(state: AgentState):
         total_signals = len(signals)
         confidence = round(max(bullish_signals, bearish_signals) / total_signals, 2) * 100
 
+        # Create detail dictionary with all fundamental data
+        detail = {
+            "profitability": {
+                "return_on_equity": return_on_equity,
+                "net_margin": net_margin,
+                "operating_margin": operating_margin,
+                "score": profitability_score,
+                "signal": signals[0]
+            },
+            "growth": {
+                "revenue_growth": revenue_growth,
+                "earnings_growth": earnings_growth,
+                "book_value_growth": book_value_growth,
+                "score": growth_score,
+                "signal": signals[1]
+            },
+            "financial_health": {
+                "current_ratio": current_ratio,
+                "debt_to_equity": debt_to_equity,
+                "free_cash_flow_per_share": free_cash_flow_per_share,
+                "earnings_per_share": earnings_per_share,
+                "score": health_score,
+                "signal": signals[2]
+            },
+            "valuation": {
+                "pe_ratio": pe_ratio,
+                "pb_ratio": pb_ratio,
+                "ps_ratio": ps_ratio,
+                "score": valuation_score,
+                "signal": signals[3]
+            }
+        }
+
         fundamental_analysis[ticker] = {
             "signal": overall_signal,
             "confidence": confidence,
             "reasoning": reasoning,
+            "detail": detail
         }
 
         progress.update_status("fundamentals_agent", ticker, "Done")
