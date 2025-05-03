@@ -19,6 +19,7 @@ from tools.financial_metrics_service import get_financial_metrics, get_financial
 from tools.company_news_service import get_company_news, get_company_news_df
 from tools.insider_trades_service import get_insider_trades, get_insider_trades_df
 from tools.line_items_service import search_line_items, get_line_items_df
+from tools.setup_database import get_db_connection
 
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
@@ -30,7 +31,7 @@ load_dotenv()
 init(autoreset=True)
 
 # Hardcoded parameters
-TICKERS = [ "AAPL", "NVDA" ]
+TICKERS = [ "AAPL", "NVDA", "MSFT" ]
 MODEL_NAME = "deepseek-chat"
 MODEL_PROVIDER = ModelProvider.DEEPSEEK.value
 INITIAL_CASH = 100000.0
@@ -96,10 +97,16 @@ def run_hedge_fund(
             },
         )
 
-        return {
+        result = {
             "decisions": parse_hedge_fund_response(final_state["messages"][-1].content),
             "analyst_signals": final_state["data"]["analyst_signals"],
         }
+
+        # Save valuation data to database if valuation agent was run
+        if "valuation_agent" in result["analyst_signals"]:
+            save_valuation_data(result["analyst_signals"]["valuation_agent"])
+
+        return result
     finally:
         # Stop progress tracking
         progress.stop()
@@ -144,6 +151,52 @@ def create_workflow(selected_analysts=None):
     return workflow
 
 
+def save_valuation_data(valuation_data: dict):
+    """Save valuation data to the database with UPSERT functionality."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        for ticker, data in valuation_data.items():
+            for method in data["detail"]:
+                cursor.execute(
+                    """
+                    INSERT INTO valuation (
+                        ticker,
+                        valuation_method,
+                        intrinsic_value,
+                        market_cap,
+                        gap,
+                        signal,
+                        biz_date
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (ticker, valuation_method, biz_date) 
+                    DO UPDATE SET
+                        intrinsic_value = EXCLUDED.intrinsic_value,
+                        market_cap = EXCLUDED.market_cap,
+                        gap = EXCLUDED.gap,
+                        signal = EXCLUDED.signal,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (
+                        ticker,
+                        method["valuation_method"],
+                        method["intrinsic_value"],
+                        method["market_cap"],
+                        method["gap"],
+                        method["signal"],
+                        method["biz_date"]
+                    )
+                )
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"Error saving valuation data: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
 if __name__ == "__main__":
     # Configure logging
     configure_logging(save_logs=SAVE_LOGS)
@@ -153,7 +206,7 @@ if __name__ == "__main__":
     
     # Use all analysts
     #selected_analysts = list(ANALYST_CONFIG.keys())
-    selected_analysts = ['fundamentals_analyst', 'warren_buffett'] 
+    selected_analysts = ['valuation_analyst'] 
     
     print(f"\nUsing all analysts: {', '.join(Fore.GREEN + ANALYST_CONFIG[choice]['display_name'] + Style.RESET_ALL for choice in selected_analysts)}\n")
     

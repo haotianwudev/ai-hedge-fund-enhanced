@@ -140,10 +140,37 @@ def valuation_agent(state: AgentState):
             for m, vals in method_values.items() if vals["value"] > 0
         }
 
+        # Create flat list of valuation data including weighted
+        weighted_value = sum(
+            v["weight"] * v["value"] for v in method_values.values() if v["value"] > 0
+        ) / total_weight
+        
+        detail = [
+            {
+                "valuation_method": m,
+                "intrinsic_value": vals["value"],
+                "market_cap": market_cap,
+                "gap": vals["gap"],
+                "signal": "bullish" if vals["gap"] and vals["gap"] > 0.15 else 
+                         "bearish" if vals["gap"] and vals["gap"] < -0.15 else "neutral",
+                "biz_date": end_date
+            }
+            for m, vals in method_values.items() if vals["value"] > 0
+        ]
+        detail.append({
+            "valuation_method": "weighted",
+            "intrinsic_value": weighted_value,
+            "market_cap": market_cap,
+            "gap": weighted_gap,
+            "signal": signal,
+            "biz_date": end_date
+        })
+
         valuation_analysis[ticker] = {
             "signal": signal,
             "confidence": confidence,
             "reasoning": reasoning,
+            "detail": detail
         }
         progress.update_status("valuation_agent", ticker, "Done")
 
