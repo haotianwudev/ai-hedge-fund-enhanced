@@ -171,6 +171,53 @@ The Fundamental Analysis Agent evaluates companies across four key dimensions to
 }
 ```
 
+# Sentiment Agent Documentation
+
+## Overview
+The Sentiment Agent analyzes market sentiment from two key sources:
+1. Insider trading activity (30% weight)
+2. Company news sentiment (70% weight)
+
+## Core Methodology
+
+### Insider Trading Analysis
+- **Bullish Signal**: Net buying activity (positive transaction shares)
+- **Bearish Signal**: Net selling activity (negative transaction shares)
+- Data from past 1000 insider transactions
+
+### News Sentiment Analysis
+- **Bullish Signal**: Positive sentiment articles
+- **Bearish Signal**: Negative sentiment articles  
+- **Neutral Signal**: Neutral sentiment articles
+- Data from past 100 news articles
+
+### Signal Generation Process
+1. For each ticker:
+   - Count bullish/bearish signals from both sources
+   - Apply weights (30% insider, 70% news)
+   - Calculate weighted signal counts:
+     ```
+     bullish_signals = (insider_bullish * 0.3) + (news_bullish * 0.7)
+     bearish_signals = (insider_bearish * 0.3) + (news_bearish * 0.7)
+     ```
+2. Determine final signal:
+   - Bullish: bullish_signals > bearish_signals
+   - Bearish: bearish_signals > bullish_signals  
+   - Neutral: equal signals
+3. Calculate confidence:
+   - Scaled from 0-100% based on signal dominance
+   - Formula: max(bullish_signals, bearish_signals) / total_signals * 100
+
+## Output Example
+```json
+{
+  "AAPL": {
+    "signal": "bullish",
+    "confidence": 75,
+    "reasoning": "Weighted Bullish signals: 42.3, Weighted Bearish signals: 28.1"
+  }
+}
+
 # Warren Buffett Agent Documentation
 
 ## Overview
