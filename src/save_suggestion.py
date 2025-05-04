@@ -39,7 +39,7 @@ MARGIN_REQUIREMENT = 0.0
 SHOW_REASONING = True
 SHOW_AGENT_GRAPH = True
 SAVE_LOGS = True
-ANALYSTS = ['warren_buffett'] 
+ANALYSTS = ['warren_buffett', 'charlie_munger'] 
 
 
 def parse_hedge_fund_response(response):
@@ -108,7 +108,7 @@ def run_hedge_fund(
             # Save AI agents to unified table
             agent_key = agent_name.replace("_agent", "")
             if ANALYST_CONFIG.get(agent_key, {}).get("is_ai_agent", False):
-                save_ai_analysis_data(agent_name, agent_data, end_date)
+                save_ai_analysis_data(agent_name, agent_data, end_date, final_state)
             # Save specialized agents to their own tables
             elif agent_name == "valuation_agent":
                 save_valuation_data(agent_data)
@@ -164,7 +164,7 @@ def create_workflow(selected_analysts=None):
     return workflow
 
 
-def save_ai_analysis_data(agent_name: str, analysis_data: dict, biz_date: str):
+def save_ai_analysis_data(agent_name: str, analysis_data: dict, biz_date: str, state: dict = None):
     """Save AI agent analysis data to unified ai_analysis table."""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -174,13 +174,16 @@ def save_ai_analysis_data(agent_name: str, analysis_data: dict, biz_date: str):
             cursor.execute(
                 """
                 INSERT INTO ai_analysis (
-                    ticker, agent, signal, confidence, reasoning, biz_date
-                ) VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (ticker, agent, biz_date) 
+                    ticker, agent, signal, confidence, reasoning, 
+                    model_name, model_display_name, biz_date
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (ticker, agent, biz_date, model_display_name) 
                 DO UPDATE SET
                     signal = EXCLUDED.signal,
                     confidence = EXCLUDED.confidence,
                     reasoning = EXCLUDED.reasoning,
+                    model_name = EXCLUDED.model_name,
+                    model_display_name = EXCLUDED.model_display_name,
                     updated_at = CURRENT_TIMESTAMP
                 """,
                 (
@@ -189,6 +192,8 @@ def save_ai_analysis_data(agent_name: str, analysis_data: dict, biz_date: str):
                     data["signal"],
                     data["confidence"],
                     json.dumps(data["reasoning"]) if isinstance(data["reasoning"], dict) else data["reasoning"],
+                    state["metadata"]["model_name"] if state else None,
+                    state["metadata"]["model_provider"] if state else None,
                     biz_date
                 )
             )

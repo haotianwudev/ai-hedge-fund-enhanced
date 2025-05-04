@@ -749,6 +749,206 @@ def get_company_news_db(
         print(f"Error fetching company news from database: {e}")
         return None
 
+def get_valuation_db(
+    ticker: str,
+    end_date: str
+) -> list[dict] | None:
+    """
+    Fetch valuation data from the PostgreSQL database.
+    
+    Args:
+        ticker: The stock ticker symbol
+        end_date: The end date for filtering valuations
+        
+    Returns:
+        A list of valuation records with all methods for latest date,
+        including weighted combined result, or None if not found
+    """
+    try:
+        # Connect to PostgreSQL
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # First get the latest valuation date
+        cursor.execute(
+            """
+            SELECT MAX(biz_date) as latest_date 
+            FROM valuation
+            WHERE ticker = %s AND biz_date <= %s
+            """,
+            (ticker, end_date))
+        latest_date = cursor.fetchone()['latest_date']
+        
+        if not latest_date:
+            return None
+            
+        # Get all valuation methods for latest date including weighted result
+        cursor.execute(
+            """
+            SELECT * FROM valuation
+            WHERE ticker = %s AND biz_date = %s
+            ORDER BY 
+                CASE valuation_method 
+                    WHEN 'weighted' THEN 999
+                    ELSE 0
+                END,
+                valuation_method
+            """,
+            (ticker, latest_date))
+        results = cursor.fetchall()
+        
+        # Close cursor and connection
+        cursor.close()
+        conn.close()
+        
+        # Return None if no data found
+        if not results:
+            return None
+            
+        return results
+            
+    except Exception as e:
+        print(f"Error fetching valuation from database: {e}")
+        return None
+
+def get_technicals_db(
+    ticker: str,
+    end_date: str,
+    limit: int = 1
+) -> list[dict] | None:
+    """
+    Fetch technical analysis data from the PostgreSQL database.
+    
+    Args:
+        ticker: The stock ticker symbol
+        end_date: The end date for filtering technicals
+        limit: Maximum number of records to return
+        
+    Returns:
+        A list of technical analysis records or None if not found
+    """
+    try:
+        # Connect to PostgreSQL
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Query the database
+        cursor.execute(
+            """
+            SELECT * FROM technicals
+            WHERE ticker = %s AND biz_date <= %s
+            ORDER BY biz_date DESC, created_at DESC
+            LIMIT %s
+            """,
+            (ticker, end_date, limit))
+        results = cursor.fetchall()
+        
+        # Close cursor and connection
+        cursor.close()
+        conn.close()
+        
+        # Return None if no data found
+        if not results:
+            return None
+            
+        return results
+            
+    except Exception as e:
+        print(f"Error fetching technicals from database: {e}")
+        return None
+
+def get_sentiment_db(
+    ticker: str,
+    end_date: str,
+    limit: int = 1
+) -> list[dict] | None:
+    """
+    Fetch sentiment analysis data from the PostgreSQL database.
+    
+    Args:
+        ticker: The stock ticker symbol
+        end_date: The end date for filtering sentiment
+        limit: Maximum number of records to return
+        
+    Returns:
+        A list of sentiment analysis records or None if not found
+    """
+    try:
+        # Connect to PostgreSQL
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Query the database
+        cursor.execute(
+            """
+            SELECT * FROM sentiment
+            WHERE ticker = %s AND biz_date <= %s
+            ORDER BY biz_date DESC, created_at DESC
+            LIMIT %s
+            """,
+            (ticker, end_date, limit))
+        results = cursor.fetchall()
+        
+        # Close cursor and connection
+        cursor.close()
+        conn.close()
+        
+        # Return None if no data found
+        if not results:
+            return None
+            
+        return results
+            
+    except Exception as e:
+        print(f"Error fetching sentiment from database: {e}")
+        return None
+
+def get_fundamentals_db(
+    ticker: str,
+    end_date: str,
+    limit: int = 1
+) -> list[dict] | None:
+    """
+    Fetch fundamental analysis data from the PostgreSQL database.
+    
+    Args:
+        ticker: The stock ticker symbol
+        end_date: The end date for filtering fundamentals
+        limit: Maximum number of records to return
+        
+    Returns:
+        A list of fundamental analysis records or None if not found
+    """
+    try:
+        # Connect to PostgreSQL
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Query the database
+        cursor.execute(
+            """
+            SELECT * FROM fundamentals
+            WHERE ticker = %s AND biz_date <= %s
+            ORDER BY biz_date DESC, created_at DESC
+            LIMIT %s
+            """,
+            (ticker, end_date, limit))
+        results = cursor.fetchall()
+        
+        # Close cursor and connection
+        cursor.close()
+        conn.close()
+        
+        # Return None if no data found
+        if not results:
+            return None
+            
+        return results
+            
+    except Exception as e:
+        print(f"Error fetching fundamentals from database: {e}")
+        return None
+
 def save_company_news(news_list: list[CompanyNews]) -> bool:
     """
     Save company news to the PostgreSQL database.
