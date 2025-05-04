@@ -409,11 +409,12 @@ def generate_buffett_output(
                 2. Highlighting how the company aligns with or violates specific Buffett principles
                 3. Providing quantitative evidence where relevant (e.g., specific margins, ROE values, debt levels)
                 4. Concluding with a Buffett-style assessment of the investment opportunity
-                5. Using Warren Buffett's voice and conversational style in your explanation
 
                 For example, if bullish: "I'm particularly impressed with [specific strength], reminiscent of our early investment in See's Candies where we saw [similar attribute]..."
                 For example, if bearish: "The declining returns on capital remind me of the textile operations at Berkshire that we eventually exited because..."
 
+                Finally, pick a key competitor with same products or services to compare with the stock in 1 sentence on a key metrics.
+                
                 Follow these guidelines strictly.
                 """,
             ),
@@ -427,7 +428,7 @@ def generate_buffett_output(
                 Return the trading signal in the following JSON format exactly:
                 {{
                   "signal": "bullish" | "bearish" | "neutral",
-                  "confidence": float between 0 and 100,
+                  "confidence": float between 0 and 100 (confidence on signal provided, 25 is not certain, 75 is certain),
                   "reasoning": "string"
                 }}
                 """,
