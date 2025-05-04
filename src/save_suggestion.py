@@ -39,7 +39,7 @@ MARGIN_REQUIREMENT = 0.0
 SHOW_REASONING = True
 SHOW_AGENT_GRAPH = True
 SAVE_LOGS = True
-ANALYSTS = ['technical_analyst'] 
+ANALYSTS = ['warren_buffett'] 
 
 
 def parse_hedge_fund_response(response):
@@ -104,14 +104,20 @@ def run_hedge_fund(
         }
 
         # Save analyst data to database
-        if "valuation_agent" in result["analyst_signals"]:
-            save_valuation_data(result["analyst_signals"]["valuation_agent"])
-        if "fundamentals_agent" in result["analyst_signals"]:
-            save_fundamentals_data(result["analyst_signals"]["fundamentals_agent"], end_date)
-        if "sentiment_agent" in result["analyst_signals"]:
-            save_sentiment_data(result["analyst_signals"]["sentiment_agent"])
-        if "technical_analyst_agent" in result["analyst_signals"]:
-            save_technical_data(result["analyst_signals"]["technical_analyst_agent"], end_date)
+        for agent_name, agent_data in result["analyst_signals"].items():
+            # Save AI agents to unified table
+            agent_key = agent_name.replace("_agent", "")
+            if ANALYST_CONFIG.get(agent_key, {}).get("is_ai_agent", False):
+                save_ai_analysis_data(agent_name, agent_data, end_date)
+            # Save specialized agents to their own tables
+            elif agent_name == "valuation_agent":
+                save_valuation_data(agent_data)
+            elif agent_name == "fundamentals_agent":
+                save_fundamentals_data(agent_data, end_date)
+            elif agent_name == "sentiment_agent":
+                save_sentiment_data(agent_data)
+            elif agent_name == "technical_analyst_agent":
+                save_technical_data(agent_data, end_date)
 
         return result
     finally:
@@ -157,6 +163,42 @@ def create_workflow(selected_analysts=None):
     workflow.set_entry_point("start_node")
     return workflow
 
+
+def save_ai_analysis_data(agent_name: str, analysis_data: dict, biz_date: str):
+    """Save AI agent analysis data to unified ai_analysis table."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        for ticker, data in analysis_data.items():
+            cursor.execute(
+                """
+                INSERT INTO ai_analysis (
+                    ticker, agent, signal, confidence, reasoning, biz_date
+                ) VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (ticker, agent, biz_date) 
+                DO UPDATE SET
+                    signal = EXCLUDED.signal,
+                    confidence = EXCLUDED.confidence,
+                    reasoning = EXCLUDED.reasoning,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (
+                    ticker,
+                    agent_name.replace("_agent", ""),  # Remove '_agent' suffix
+                    data["signal"],
+                    data["confidence"],
+                    json.dumps(data["reasoning"]) if isinstance(data["reasoning"], dict) else data["reasoning"],
+                    biz_date
+                )
+            )
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"Error saving AI analysis data: {e}")
+    finally:
+        cursor.close()
+        conn.close()
 
 def save_fundamentals_data(fundamentals_data: dict, biz_date: str):
     """Save fundamentals analysis data to database."""
