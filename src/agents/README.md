@@ -8,7 +8,14 @@
 5. [Benjamin Graham Agent](#benjamin-graham-agent-documentation)
 6. [Bill Ackman Agent](#bill-ackman-agent-documentation)
 7. [Cathie Wood Agent](#cathie-wood-agent-documentation)
-8. [Warren Buffett Agent](#warren-buffett-agent-documentation)
+8. [Charlie Munger Agent](#charlie-munger-agent-documentation)
+9. [Michael Burry Agent](#michael-burry-agent-documentation)
+10. [Peter Lynch Agent](#peter-lynch-agent-documentation)
+11. [Phil Fisher Agent](#phil-fisher-agent-documentation)
+12. [Portfolio Manager Agent](#portfolio-manager-agent-documentation)
+13. [Risk Manager Agent](#risk-manager-agent-documentation)
+14. [Stanley Druckenmiller Agent](#stanley-druckenmiller-agent-documentation)
+15. [Warren Buffett Agent](#warren-buffett-agent-documentation)
 
 # Valuation Agent Documentation
 
