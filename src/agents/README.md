@@ -1,3 +1,14 @@
+# Hedge Fund AI Agents Documentation
+
+## Table of Contents
+1. [Valuation Agent](#valuation-agent-documentation)
+2. [Fundamental Analysis Agent](#fundamental-analysis-agent-documentation)  
+3. [Sentiment Agent](#sentiment-agent-documentation)
+4. [Technical Analysis Agent](#technical-analysis-agent-documentation)
+5. [Benjamin Graham Agent](#benjamin-graham-agent-documentation)
+6. [Bill Ackman Agent](#bill-ackman-agent-documentation)
+7. [Warren Buffett Agent](#warren-buffett-agent-documentation)
+
 # Valuation Agent Documentation
 
 ## Overview
@@ -375,7 +386,275 @@ The agent combines these strategies using their weights and confidence scores to
 }
 ```
 
+# Benjamin Graham Agent Documentation
+
+## Historical Context
+Benjamin Graham (1894-1976) is considered the "father of value investing" and authored the seminal book "The Intelligent Investor." He pioneered quantitative security analysis and emphasized buying stocks trading below their intrinsic value with a margin of safety. His approach focuses strictly on valuation metrics rather than qualitative factors.
+
+## Investment Style
+- **Primary Focus**: Deep value investing (quantitative valuation)
+- **Secondary Focus**: Fundamental analysis (financial strength)
+- **Ignores**: Technical analysis and market sentiment
+- **Key Principle**: Margin of safety - only buy when price is significantly below calculated intrinsic value
+
+## Overview
+The Benjamin Graham Agent implements the classic value investing principles of Benjamin Graham, focusing on:
+1. Earnings stability over multiple years
+2. Solid financial strength (low debt, adequate liquidity)
+3. Discount to intrinsic value (Graham Number or net-net)
+4. Adequate margin of safety
+
+## Core Methodology
+
+### 1. Earnings Stability Analysis (Max 5 points)
+- **Positive EPS Years**: Points for consecutive years of positive earnings
+- **EPS Growth**: Points for growth from earliest to latest period
+- **Scoring**:
+  - 3 points if EPS positive in all available periods
+  - 2 points if EPS positive in ≥80% of periods
+  - 1 point if EPS grew from earliest to latest period
+
+### 2. Financial Strength Analysis (Max 5 points)
+- **Current Ratio**: Points for liquidity (current assets vs liabilities)
+  - 2 points if ratio ≥2.0
+  - 1 point if ratio ≥1.5
+- **Debt Ratio**: Points for conservative leverage
+  - 2 points if debt/assets <0.5
+  - 1 point if debt/assets <0.8
+- **Dividend Record**: 1 point if company paid dividends in majority of years
+
+### 3. Valuation Analysis (Max 5 points)
+- **Net-Net Working Capital**: 
+  - 4 points if NCAV > Market Cap (deep value)
+  - 2 points if NCAV per share ≥2/3 of price
+- **Graham Number**:
+  - 3 points if price has ≥50% margin below Graham Number
+  - 1 point if some margin of safety exists
+
+### Scoring Summary
+- Maximum possible score: 15 points
+- Signal thresholds:
+  - Bullish: ≥70% of max score (≥10.5 points)
+  - Bearish: ≤30% of max score (≤4.5 points)
+  - Neutral: Between 4.5-10.5 points
+
+## Key Metrics
+- **Net Current Asset Value (NCAV)**:
+  ``` 
+  NCAV = Current Assets - Total Liabilities
+  ```
+- **Graham Number**:
+  ```
+  Graham Number = √(22.5 × EPS × Book Value per Share)
+  ```
+- **Current Ratio**:
+  ```
+  Current Ratio = Current Assets / Current Liabilities
+  ```
+- **Debt Ratio**:
+  ```
+  Debt Ratio = Total Liabilities / Total Assets
+  ```
+
+## Signal Generation Process
+1. For each ticker:
+   - Fetch financial metrics and line items
+   - Calculate earnings stability score
+   - Calculate financial strength score
+   - Calculate valuation score
+   - Sum scores and determine signal based on thresholds
+   - Generate detailed reasoning using LLM in Graham's style
+
+2. Final signal combines:
+   - Quantitative scoring (70% weight)
+   - Qualitative LLM assessment (30% weight)
+
+## LLM Interaction
+The LLM formats the quantitative analysis into Graham-style reasoning:
+- Explains key valuation metrics (Graham Number, NCAV)
+- Highlights financial strength indicators
+- References earnings stability
+- Provides quantitative evidence
+- Uses Graham's conservative, analytical voice
+
+Example prompt:
+```
+"You are a Benjamin Graham AI agent, making investment decisions using his principles:
+1. Insist on margin of safety by buying below intrinsic value
+2. Emphasize financial strength (low leverage, ample current assets)
+3. Prefer stable earnings over multiple years
+4. Avoid speculative assumptions; focus on proven metrics
+
+Format this analysis as a Graham-style recommendation:
+{analysis_data}"
+```
+
+## Output Example
+```json
+{
+  "AAPL": {
+    "signal": "bullish",
+    "confidence": 82,
+    "reasoning": {
+      "earnings_analysis": {
+        "score": 4,
+        "details": "EPS positive in all 10 periods, grew from $1.42 to $6.11"
+      },
+      "financial_strength": {
+        "score": 4,
+        "details": "Current ratio: 2.3, Debt ratio: 0.42, Paid dividends 8/10 years"
+      },
+      "valuation": {
+        "score": 4,
+        "details": "NCAV/share: $45.20 (67% of price), Graham Number: $125.40 (35% above current price)"
+      }
+    }
+  }
+}
+```
+
+# Bill Ackman Agent Documentation
+
+## Historical Context
+Bill Ackman (b. 1966) is a prominent activist investor and founder of Pershing Square Capital Management. Known for high-profile activist campaigns (e.g., Herbalife short), he focuses on high-quality businesses where operational improvements or activism can unlock value. His style blends deep fundamental analysis with activist positioning.
+
+## Investment Style  
+- **Primary Focus**: Fundamental analysis (business quality)
+- **Secondary Focus**: Valuation (DCF models) and activism potential
+- **Uses Selectively**: Market sentiment for timing activist campaigns
+- **Ignores**: Technical analysis
+- **Key Principle**: Invest in simple, predictable, free cash flow generative businesses
+
+## Overview
+The Bill Ackman Agent implements the investment principles of activist investor Bill Ackman, focusing on:
+1. High-quality businesses with durable competitive advantages
+2. Consistent free cash flow and growth potential
+3. Financial discipline and capital allocation
+4. Valuation with margin of safety
+5. Activism potential where improvements can unlock value
+
+## Core Methodology
+
+### 1. Business Quality Analysis (Max 5 points)
+- **Revenue Growth**: Points for multi-period growth trends
+- **Operating Margins**: Points for consistent profitability
+- **Free Cash Flow**: Points for positive cash generation
+- **Return on Equity**: Points for high ROE indicating moat
+
+### 2. Financial Discipline Analysis (Max 5 points)
+- **Debt Levels**: Points for reasonable leverage
+- **Capital Returns**: Points for dividends/buybacks
+- **Share Count**: Points for decreasing shares (buybacks)
+
+### 3. Activism Potential Analysis (Max 2 points)
+- **Revenue vs Margins**: Points for growth with subpar margins
+- **Operational Upside**: Identifies potential improvements
+
+### 4. Valuation Analysis (Max 8 points)
+- **DCF Valuation**: Discounted cash flow analysis
+- **Margin of Safety**: Points for significant undervaluation
+
+### Scoring Summary
+- Maximum possible score: 20 points
+- Signal thresholds:
+  - Bullish: ≥70% of max score (≥14 points)
+  - Bearish: ≤30% of max score (≤6 points)
+  - Neutral: Between 6-14 points
+
+## Key Metrics
+- **Free Cash Flow**: 
+  ```
+  FCF = Operating Cash Flow - Capital Expenditures
+  ```
+- **Debt-to-Equity**:
+  ```
+  Debt/Equity = Total Liabilities / Shareholders' Equity
+  ```
+- **Intrinsic Value**:
+  ```
+  DCF = Σ(FCF projections) + Terminal Value
+  ```
+- **Margin of Safety**:
+  ```
+  MOS = (Intrinsic Value - Market Cap) / Market Cap
+  ```
+
+## Signal Generation Process
+1. For each ticker:
+   - Fetch financial metrics and line items
+   - Calculate business quality score
+   - Calculate financial discipline score
+   - Assess activism potential
+   - Perform DCF valuation
+   - Sum scores and determine signal based on thresholds
+   - Generate detailed reasoning using LLM in Ackman's style
+
+2. Final signal combines:
+   - Quantitative scoring (70% weight)
+   - Qualitative LLM assessment (30% weight)
+
+## LLM Interaction
+The LLM formats the quantitative analysis into Ackman-style reasoning:
+- Emphasizes brand strength and competitive advantages
+- Reviews cash flow and margin trends
+- Analyzes capital allocation decisions
+- Provides valuation assessment with numbers
+- Identifies activism catalysts
+- Uses confident, analytical tone
+
+Example prompt:
+```
+"You are a Bill Ackman AI agent, making investment decisions using his principles:
+1. Seek high-quality businesses with durable moats
+2. Prioritize consistent free cash flow
+3. Advocate financial discipline
+4. Target intrinsic value with margin of safety
+5. Consider activism potential
+6. Concentrate on high-conviction investments
+
+Format this analysis as an Ackman-style recommendation:
+{analysis_data}"
+```
+
+## Output Example
+```json
+{
+  "AAPL": {
+    "signal": "bullish",
+    "confidence": 85,
+    "reasoning": {
+      "quality_analysis": {
+        "score": 4,
+        "details": "Strong brand, 18% revenue growth, 25% operating margins"
+      },
+      "financial_discipline": {
+        "score": 4,
+        "details": "Debt/equity 0.8, $50B in buybacks last 5 years"
+      },
+      "activism": {
+        "score": 1,
+        "details": "Limited upside from activism (already well-run)"
+      },
+      "valuation": {
+        "score": 6,
+        "details": "DCF value $2.5T vs $2.1T market cap (19% margin)"
+      }
+    }
+  }
+}
+```
+
 # Warren Buffett Agent Documentation
+
+## Historical Context
+Warren Buffett (b. 1930) is chairman of Berkshire Hathaway and one of the most successful investors of all time. He evolved from pure Graham-style value investing to focus more on business quality under Charlie Munger's influence. His approach combines quantitative valuation with qualitative assessment of competitive advantages.
+
+## Investment Style
+- **Primary Focus**: Fundamental analysis (economic moats)
+- **Secondary Focus**: Valuation (owner earnings)
+- **Uses Selectively**: Management quality assessment  
+- **Ignores**: Technical analysis and short-term sentiment
+- **Key Principle**: Buy wonderful businesses at fair prices rather than fair businesses at wonderful prices
 
 ## Overview
 The Warren Buffett Agent emulates the investment philosophy of Warren Buffett, focusing on:
