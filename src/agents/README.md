@@ -236,7 +236,7 @@ The Sentiment Agent analyzes market sentiment from two key sources:
   }
 }
 
-# Technical Analysis Agent Documentation
+## Technical Analysis Agent Documentation
 
 ## Overview
 The Technical Analysis Agent combines multiple quantitative trading strategies to generate signals based on price action and market statistics. It uses an ensemble approach with weighted signals from five different methodologies.
