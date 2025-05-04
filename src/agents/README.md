@@ -1,22 +1,14 @@
-# Valuation Agent Documentation
+# AI Hedge Fund - Investment Agents Documentation
 
-[Previous Valuation Agent content remains unchanged...]
-
-# Fundamental Analysis Agent Documentation
-
-[Previous Fundamental Analysis content remains unchanged...]
-
-# Sentiment Agent Documentation
-
-[Previous Sentiment Agent content remains unchanged...]
-
-# Technical Analysis Agent Documentation
-
-[Previous Technical Analysis content remains unchanged...]
-
-# Warren Buffett Agent Documentation
-
-[Previous Warren Buffett content remains unchanged...]
+## Table of Contents
+1. [Ben Graham Agent](#ben-graham-agent-documentation)
+2. [Warren Buffett Agent](#warren-buffett-agent-documentation)  
+3. [Bill Ackman Agent](#bill-ackman-agent-documentation)
+4. [Cathie Wood Agent](#cathie-wood-agent-documentation)
+5. [Valuation Agent](#valuation-agent-documentation)
+6. [Fundamental Analysis Agent](#fundamental-analysis-agent-documentation)
+7. [Sentiment Agent](#sentiment-agent-documentation)
+8. [Technical Analysis Agent](#technical-analysis-agent-documentation)
 
 # Ben Graham Agent Documentation
 
@@ -67,6 +59,26 @@ The Ben Graham Agent implements classic value investing principles focusing on:
   }
 }
 ```
+
+# Valuation Agent Documentation
+
+[Previous Valuation Agent content remains unchanged...]
+
+# Fundamental Analysis Agent Documentation
+
+[Previous Fundamental Analysis content remains unchanged...]
+
+# Sentiment Agent Documentation
+
+[Previous Sentiment Agent content remains unchanged...]
+
+# Technical Analysis Agent Documentation
+
+[Previous Technical Analysis content remains unchanged...]
+
+# Warren Buffett Agent Documentation
+
+[Previous Warren Buffett content remains unchanged...]
 
 # Bill Ackman Agent Documentation
 
