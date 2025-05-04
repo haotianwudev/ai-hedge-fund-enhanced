@@ -235,6 +235,7 @@ The Sentiment Agent analyzes market sentiment from two key sources:
     }
   }
 }
+```
 
 ## Technical Analysis Agent Documentation
 
