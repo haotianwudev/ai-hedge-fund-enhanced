@@ -7,7 +7,8 @@
 4. [Technical Analysis Agent](#technical-analysis-agent-documentation)
 5. [Benjamin Graham Agent](#benjamin-graham-agent-documentation)
 6. [Bill Ackman Agent](#bill-ackman-agent-documentation)
-7. [Warren Buffett Agent](#warren-buffett-agent-documentation)
+7. [Cathie Wood Agent](#cathie-wood-agent-documentation)
+8. [Warren Buffett Agent](#warren-buffett-agent-documentation)
 
 # Valuation Agent Documentation
 
