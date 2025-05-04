@@ -644,6 +644,122 @@ Format this analysis as an Ackman-style recommendation:
 }
 ```
 
+# Cathie Wood Agent Documentation
+
+## Historical Context
+Cathie Wood (b. 1955) is the founder and CEO of ARK Invest, known for her focus on disruptive innovation and high-growth technology companies. She pioneered thematic investing in areas like genomics, AI, fintech, and blockchain. Her investment style embraces volatility and focuses on long-term exponential growth potential rather than short-term profitability.
+
+## Investment Style
+- **Primary Focus**: Disruptive innovation and exponential growth potential
+- **Secondary Focus**: Technology adoption curves and total addressable market (TAM)
+- **Uses Selectively**: Market sentiment for entry/exit timing
+- **Ignores**: Traditional valuation metrics in favor of long-term growth potential
+- **Key Principle**: Invest in companies that can change the world, not just incrementally improve existing industries
+
+## Overview
+The Cathie Wood Agent implements her investment philosophy focusing on:
+1. Disruptive technologies with exponential growth potential
+2. Companies positioned to benefit from technological convergence
+3. High R&D investment and innovation pipelines
+4. Large total addressable markets (TAM)
+5. Willingness to endure short-term volatility for long-term gains
+
+## Core Methodology
+
+### 1. Disruptive Potential Analysis (Max 5 points)
+- **Revenue Growth Acceleration**: Points for increasing growth rates
+- **Gross Margin Expansion**: Points for improving profitability
+- **Operating Leverage**: Points for revenue growing faster than expenses
+- **R&D Intensity**: Points for high innovation investment
+
+### 2. Innovation Growth Analysis (Max 5 points)
+- **R&D Growth**: Points for increasing research investment
+- **Free Cash Flow**: Points for funding innovation capacity  
+- **Operating Efficiency**: Points for scalable business models
+- **Capital Allocation**: Points for growth-focused spending
+- **Reinvestment Rate**: Points for prioritizing growth over dividends
+
+### 3. Exponential Valuation (Max 5 points)
+- **High-Growth DCF**: Uses aggressive growth assumptions (20%+)
+- **TAM Analysis**: Evaluates market expansion potential
+- **Margin of Safety**: Adjusted for growth potential
+
+### Scoring Summary
+- Maximum possible score: 15 points
+- Signal thresholds:
+  - Bullish: ≥70% of max score (≥10.5 points)
+  - Bearish: ≤30% of max score (≤4.5 points)  
+  - Neutral: Between 4.5-10.5 points
+
+## Key Metrics
+- **Exponential Growth Potential**:
+  ```
+  Growth Score = (Recent Growth Rate / Long-term Growth Rate) * Adoption Curve Factor
+  ```
+- **Innovation Intensity**:
+  ```
+  R&D Intensity = R&D Expense / Revenue
+  ```
+- **Disruptive Valuation**:
+  ```
+  High-Growth DCF = Σ(FCF * (1+g)^n) + (FCF * (1+g)^n * Terminal Multiple)
+  ```
+
+## Signal Generation Process
+1. For each ticker:
+   - Analyze disruptive potential metrics
+   - Evaluate innovation growth factors
+   - Calculate exponential valuation
+   - Sum scores and determine signal
+   - Generate detailed reasoning using LLM in Wood's style
+
+2. Final signal combines:
+   - Quantitative scoring (60% weight)
+   - Qualitative LLM assessment (40% weight)
+
+## LLM Interaction
+The LLM formats the analysis into Wood-style reasoning:
+- Identifies specific disruptive technologies
+- Highlights exponential growth metrics
+- Discusses long-term vision and TAM
+- Explains industry disruption potential
+- Reviews innovation pipeline
+- Uses Wood's optimistic, conviction-driven voice
+
+Example prompt:
+```
+"You are a Cathie Wood AI agent analyzing {ticker}:
+1. What disruptive technologies is the company leveraging?
+2. What evidence shows exponential growth potential?  
+3. How large is the total addressable market?
+4. What innovation pipeline could drive future growth?
+5. Format as a Wood-style recommendation with signal and confidence."
+```
+
+## Output Example
+```json
+{
+  "TSLA": {
+    "signal": "bullish",
+    "confidence": 90,
+    "reasoning": {
+      "disruptive_analysis": {
+        "score": 4.5,
+        "details": "AI and battery tech leadership, 65% revenue growth acceleration"
+      },
+      "innovation_analysis": {
+        "score": 4.8, 
+        "details": "R&D at 18% of revenue, expanding into robotics and energy"
+      },
+      "valuation": {
+        "score": 4.2,
+        "details": "$1.2T TAM in EVs/energy, trading at 50% discount to 2028 DCF"
+      }
+    }
+  }
+}
+```
+
 # Warren Buffett Agent Documentation
 
 ## Historical Context
