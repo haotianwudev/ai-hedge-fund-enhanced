@@ -9,6 +9,7 @@ from tools.price_service import get_price_data
 from tools.company_facts_service import get_market_cap
 from utils.llm import call_llm
 from utils.progress import progress
+from typing import Optional
 
 class SophieSignal(BaseModel):
     signal: Literal["bullish", "bearish", "neutral"]

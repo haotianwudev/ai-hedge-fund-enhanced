@@ -5,6 +5,7 @@ These functions can be used as replacements or fallbacks for the original API fu
 
 import os
 import datetime
+import json
 import psycopg2
 import pandas as pd
 from psycopg2.extras import RealDictCursor, execute_values
@@ -948,6 +949,71 @@ def get_fundamentals_db(
     except Exception as e:
         print(f"Error fetching fundamentals from database: {e}")
         return None
+
+def save_sophie_analysis(
+    ticker: str,
+    signal: str,
+    confidence: int,
+    overall_score: int,
+    reasoning: str,
+    time_horizon_analysis: dict,
+    bullish_factors: list,
+    bearish_factors: list,
+    risks: list,
+    model_name: str,
+    model_display_name: str = None,
+    biz_date: datetime.date = datetime.date.today()
+) -> bool:
+    """Save Sophie agent analysis to database"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        sql = """
+        INSERT INTO sophie_analysis (
+            ticker, biz_date, signal, confidence, overall_score, reasoning,
+            short_term_outlook, medium_term_outlook, long_term_outlook,
+            bullish_factors, bearish_factors, risks,
+            model_name, model_display_name
+        ) VALUES (
+            %s, %s, %s, %s, %s, %s,
+            %s, %s, %s,
+            %s::jsonb, %s::jsonb, %s::jsonb,
+            %s, %s
+        )
+        ON CONFLICT (ticker, biz_date, model_display_name) DO UPDATE SET
+            signal = EXCLUDED.signal,
+            confidence = EXCLUDED.confidence,
+            overall_score = EXCLUDED.overall_score,
+            reasoning = EXCLUDED.reasoning,
+            short_term_outlook = EXCLUDED.short_term_outlook,
+            medium_term_outlook = EXCLUDED.medium_term_outlook,
+            long_term_outlook = EXCLUDED.long_term_outlook,
+            bullish_factors = EXCLUDED.bullish_factors,
+            bearish_factors = EXCLUDED.bearish_factors,
+            risks = EXCLUDED.risks,
+            model_name = EXCLUDED.model_name,
+            model_display_name = EXCLUDED.model_display_name,
+            updated_at = CURRENT_TIMESTAMP
+        """
+        
+        cursor.execute(sql, (
+            ticker, biz_date, signal, confidence, overall_score, reasoning,
+            time_horizon_analysis.get('short_term', ''),
+            time_horizon_analysis.get('medium_term', ''),
+            time_horizon_analysis.get('long_term', ''),
+            json.dumps(bullish_factors), json.dumps(bearish_factors), json.dumps(risks),
+            model_name, model_display_name
+        ))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+        
+    except Exception as e:
+        print(f"Error saving Sophie analysis: {e}")
+        return False
 
 def save_company_news(news_list: list[CompanyNews]) -> bool:
     """
