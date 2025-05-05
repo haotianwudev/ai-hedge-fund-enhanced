@@ -13,12 +13,53 @@ This system employs several agents working together:
 7. Phil Fisher Agent - Meticulous growth investor who uses deep "scuttlebutt" research 
 8. Stanley Druckenmiller Agent - Macro legend who hunts for asymmetric opportunities with growth potential
 9. Warren Buffett Agent - The oracle of Omaha, seeks wonderful companies at a fair price
-10. Valuation Agent - Calculates the intrinsic value of a stock and generates trading signals
-11. Sentiment Agent - Analyzes market sentiment and generates trading signals
-12. Fundamentals Agent - Analyzes fundamental data and generates trading signals
-13. Technicals Agent - Analyzes technical indicators and generates trading signals
-14. Risk Manager - Calculates risk metrics and sets position limits
-15. Portfolio Manager - Makes final trading decisions and generates orders
+10. Sophie Agent - Comprehensive analysis combining valuation, technicals, fundamentals and sentiment
+11. Valuation Agent - Calculates the intrinsic value of a stock and generates trading signals
+12. Sentiment Agent - Analyzes market sentiment and generates trading signals
+13. Fundamentals Agent - Analyzes fundamental data and generates trading signals
+14. Technicals Agent - Analyzes technical indicators and generates trading signals
+15. Risk Manager - Calculates risk metrics and sets position limits
+16. Portfolio Manager - Makes final trading decisions and generates orders
+
+## Agents
+
+### Sophie Agent Methodology
+
+The Sophie agent provides comprehensive stock analysis by combining multiple analytical approaches:
+
+1. **Valuation Analysis**:
+   - Discounted Cash Flow (DCF)
+   - EV/EBITDA
+   - Owner Earnings
+   - Residual Income
+
+2. **Technical Analysis**:
+   - Trend indicators
+   - Momentum signals
+   - Volatility metrics
+   - Mean reversion patterns
+
+3. **Fundamental Analysis**:
+   - Financial statement evaluation
+   - Profitability metrics (ROE, margins)
+   - Growth rates (revenue, earnings)
+   - Financial health (liquidity, leverage)
+
+4. **Sentiment Analysis**:
+   - News sentiment scoring
+   - Insider trading activity
+   - Social media trends
+
+**Output Includes**:
+- Overall score (1-100 scale)
+- Confidence level (0-100%)
+- Time horizon specific insights:
+  - Short-term (1-3 months)
+  - Medium-term (3-12 months)
+  - Long-term (1+ years)
+- Bullish factors
+- Bearish factors
+- Risk assessment
     
 <img width="1042" alt="Screenshot 2025-03-22 at 6 19 07 PM" src="https://github.com/user-attachments/assets/cbae3dcf-b571-490d-b0ad-3f0f035ac0d4" />
 
@@ -46,6 +87,7 @@ By using this software, you agree to use it solely for learning purposes.
 - [Usage](#usage)
   - [Running the Hedge Fund](#running-the-hedge-fund)
   - [Running the Backtester](#running-the-backtester)
+- [Agents](#agents)
 - [Project Structure](#project-structure)
 - [Contributing](#contributing)
 - [Feature Requests](#feature-requests)
