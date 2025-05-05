@@ -65,7 +65,14 @@ def valuation_agent(state: AgentState):
         # ------------------------------------------------------------------
         # Valuation models
         # ------------------------------------------------------------------
-        wc_change = li_curr.working_capital - li_prev.working_capital
+        # Handle missing working capital data
+        wc_change = 0
+        if li_curr.working_capital is not None and li_prev.working_capital is not None:
+            wc_change = li_curr.working_capital - li_prev.working_capital
+        elif li_curr.working_capital is not None:
+            wc_change = li_curr.working_capital
+        elif li_prev.working_capital is not None:
+            wc_change = -li_prev.working_capital
 
         # Owner Earnings
         owner_val = calculate_owner_earnings_value(

@@ -234,9 +234,9 @@ def get_fundamental_analysis(ticker: str) -> dict:
             "signal": result["growth_signal"]
         },
         "financial_health": {
-            "current_ratio": float(result["current_ratio"]),
-            "debt_to_equity": float(result["debt_to_equity"]),
-            "free_cash_flow_per_share": float(result["free_cash_flow_per_share"]),
+            "current_ratio": float(result["current_ratio"]) if result["current_ratio"] is not None else None,
+            "debt_to_equity": float(result["debt_to_equity"]) if result["debt_to_equity"] is not None else None,
+            "free_cash_flow_per_share": float(result["free_cash_flow_per_share"]) if result["free_cash_flow_per_share"] is not None else None,
             "signal": result["health_signal"]
         },
         "valuation": {

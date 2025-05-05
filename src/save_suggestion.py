@@ -31,15 +31,15 @@ load_dotenv()
 init(autoreset=True)
 
 # Hardcoded parameters
-TICKERS = [ "AAPL", "NVDA", "MSFT" ]
+TICKERS = ["GS"]#[ "AAPL", "NVDA", "MSFT" ]
 MODEL_NAME = "deepseek-chat"
 MODEL_PROVIDER = ModelProvider.DEEPSEEK.value
 INITIAL_CASH = 100000.0
 MARGIN_REQUIREMENT = 0.0
 SHOW_REASONING = True
 SHOW_AGENT_GRAPH = True
-SAVE_LOGS = True
-ANALYSTS = ['warren_buffett', 'charlie_munger'] 
+SAVE_LOGS = False
+ANALYSTS = list(get_analyst_nodes().keys()) 
 
 
 def parse_hedge_fund_response(response):
