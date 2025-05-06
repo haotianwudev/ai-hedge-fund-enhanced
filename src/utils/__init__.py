@@ -1,3 +1,1 @@
-# This file can be empty
-
-"""Utility modules for the application."""
+# Marks this directory as a Python package

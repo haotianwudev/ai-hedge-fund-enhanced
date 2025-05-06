@@ -14,7 +14,12 @@ from src.tools.db_upload import (
     load_company_news_to_db,
     load_financial_metrics_to_db,
     load_insider_trades_to_db,
-    load_line_items_to_db
+    load_line_items_to_db,
+    save_ai_analysis_data,
+    save_valuation_data,
+    save_fundamentals_data,
+    save_sentiment_data,
+    save_technical_data
 )
 
 TABLE_UPLOAD_CONFIG = {
@@ -47,5 +52,30 @@ TABLE_UPLOAD_CONFIG = {
         'upload_function': load_line_items_to_db,
         'sql_table_name': 'line_items',
         'params': ['end_date']
+    },
+    'ai_analysis': {
+    'upload_function': save_ai_analysis_data,
+        'sql_table_name': 'ai_analysis',
+        'params': ['biz_date']
+    },
+    'valuation': {
+        'upload_function': save_valuation_data,
+        'sql_table_name': 'valuation',
+        'params': ['biz_date']
+    },
+    'fundamentals': {
+        'upload_function': save_fundamentals_data,
+        'sql_table_name': 'fundamentals',
+        'params': ['biz_date']
+    },
+    'sentiment': {
+        'upload_function': save_sentiment_data,
+        'sql_table_name': 'sentiment',
+        'params': ['biz_date']
+    },
+    'technicals': {
+        'upload_function': save_technical_data,
+        'sql_table_name': 'technicals',
+        'params': ['biz_date']
     }
 }

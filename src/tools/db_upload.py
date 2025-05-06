@@ -408,3 +408,372 @@ def save_line_items_to_db(ticker, line_items):
     except Exception as e:
         print(f"{Fore.RED}Error saving line items to database: {e}{Style.RESET_ALL}")
         return False
+
+def save_ai_analysis_data(agent_name, analysis_data, biz_date, state=None):
+    """Save AI agent analysis data to unified ai_analysis table."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        for ticker, data in analysis_data.items():
+            cursor.execute(
+                """
+                INSERT INTO ai_analysis (
+                    ticker, agent, signal, confidence, reasoning, 
+                    model_name, model_display_name, biz_date
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (ticker, agent, biz_date, model_display_name) 
+                DO UPDATE SET
+                    signal = EXCLUDED.signal,
+                    confidence = EXCLUDED.confidence,
+                    reasoning = EXCLUDED.reasoning,
+                    model_name = EXCLUDED.model_name,
+                    model_display_name = EXCLUDED.model_display_name,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (
+                    ticker,
+                    agent_name.replace("_agent", ""),  # Remove '_agent' suffix
+                    data["signal"],
+                    data["confidence"],
+                    json.dumps(data["reasoning"]) if isinstance(data["reasoning"], dict) else data["reasoning"],
+                    state["metadata"]["model_name"] if state else None,
+                    state["metadata"]["model_provider"] if state else None,
+                    biz_date
+                )
+            )
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"Error saving AI analysis data: {e}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+def save_valuation_data(valuation_data):
+    """Save valuation data to the database with UPSERT functionality."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        for ticker, data in valuation_data.items():
+            for method in data["detail"]:
+                cursor.execute(
+                    """
+                    INSERT INTO valuation (
+                        ticker,
+                        valuation_method,
+                        intrinsic_value,
+                        market_cap,
+                        gap,
+                        signal,
+                        biz_date
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (ticker, valuation_method, biz_date) 
+                    DO UPDATE SET
+                        intrinsic_value = EXCLUDED.intrinsic_value,
+                        market_cap = EXCLUDED.market_cap,
+                        gap = EXCLUDED.gap,
+                        signal = EXCLUDED.signal,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (
+                        ticker,
+                        method["valuation_method"],
+                        method["intrinsic_value"],
+                        method["market_cap"],
+                        method["gap"],
+                        method["signal"],
+                        method["biz_date"]
+                    )
+                )
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"Error saving valuation data: {e}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+def save_fundamentals_data(fundamentals_data, biz_date):
+    """Save fundamentals analysis data to database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        for ticker, data in fundamentals_data.items():
+            detail = data["detail"]
+            cursor.execute(
+                """
+                INSERT INTO fundamentals (
+                    ticker, biz_date, overall_signal, confidence,
+                    return_on_equity, net_margin, operating_margin,
+                    profitability_score, profitability_signal,
+                    revenue_growth, earnings_growth, book_value_growth,
+                    growth_score, growth_signal,
+                    current_ratio, debt_to_equity, free_cash_flow_per_share, earnings_per_share,
+                    health_score, health_signal,
+                    pe_ratio, pb_ratio, ps_ratio,
+                    valuation_score, valuation_signal
+                ) VALUES (
+                    %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s,
+                    %s, %s, %s,
+                    %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s,
+                    %s, %s, %s,
+                    %s, %s
+                )
+                ON CONFLICT (ticker, biz_date) 
+                DO UPDATE SET
+                    overall_signal = EXCLUDED.overall_signal,
+                    confidence = EXCLUDED.confidence,
+                    return_on_equity = EXCLUDED.return_on_equity,
+                    net_margin = EXCLUDED.net_margin,
+                    operating_margin = EXCLUDED.operating_margin,
+                    profitability_score = EXCLUDED.profitability_score,
+                    profitability_signal = EXCLUDED.profitability_signal,
+                    revenue_growth = EXCLUDED.revenue_growth,
+                    earnings_growth = EXCLUDED.earnings_growth,
+                    book_value_growth = EXCLUDED.book_value_growth,
+                    growth_score = EXCLUDED.growth_score,
+                    growth_signal = EXCLUDED.growth_signal,
+                    current_ratio = EXCLUDED.current_ratio,
+                    debt_to_equity = EXCLUDED.debt_to_equity,
+                    free_cash_flow_per_share = EXCLUDED.free_cash_flow_per_share,
+                    earnings_per_share = EXCLUDED.earnings_per_share,
+                    health_score = EXCLUDED.health_score,
+                    health_signal = EXCLUDED.health_signal,
+                    pe_ratio = EXCLUDED.pe_ratio,
+                    pb_ratio = EXCLUDED.pb_ratio,
+                    ps_ratio = EXCLUDED.ps_ratio,
+                    valuation_score = EXCLUDED.valuation_score,
+                    valuation_signal = EXCLUDED.valuation_signal,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (
+                    ticker, biz_date, data["signal"], data["confidence"],
+                    detail["profitability"]["return_on_equity"],
+                    detail["profitability"]["net_margin"],
+                    detail["profitability"]["operating_margin"],
+                    detail["profitability"]["score"],
+                    detail["profitability"]["signal"],
+                    detail["growth"]["revenue_growth"],
+                    detail["growth"]["earnings_growth"],
+                    detail["growth"]["book_value_growth"],
+                    detail["growth"]["score"],
+                    detail["growth"]["signal"],
+                    detail["financial_health"]["current_ratio"],
+                    detail["financial_health"]["debt_to_equity"],
+                    detail["financial_health"]["free_cash_flow_per_share"],
+                    detail["financial_health"]["earnings_per_share"],
+                    detail["financial_health"]["score"],
+                    detail["financial_health"]["signal"],
+                    detail["valuation"]["pe_ratio"],
+                    detail["valuation"]["pb_ratio"],
+                    detail["valuation"]["ps_ratio"],
+                    detail["valuation"]["score"],
+                    detail["valuation"]["signal"]
+                )
+            )
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"Error saving fundamentals data: {e}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+def save_sentiment_data(sentiment_data):
+    """Save sentiment data to the database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        for ticker, data in sentiment_data.items():
+            detail = data["detail"]
+            cursor.execute(
+                """
+                INSERT INTO sentiment (
+                    ticker, biz_date, overall_signal, confidence,
+                    insider_total, insider_bullish, insider_bearish,
+                    insider_value_total, insider_value_bullish, insider_value_bearish,
+                    insider_weight, news_total, news_bullish, news_bearish, news_neutral,
+                    news_weight, weighted_bullish, weighted_bearish
+                ) VALUES (
+                    %s, %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s,
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s
+                )
+                ON CONFLICT (ticker, biz_date) 
+                DO UPDATE SET
+                    overall_signal = EXCLUDED.overall_signal,
+                    confidence = EXCLUDED.confidence,
+                    insider_total = EXCLUDED.insider_total,
+                    insider_bullish = EXCLUDED.insider_bullish,
+                    insider_bearish = EXCLUDED.insider_bearish,
+                    insider_value_total = EXCLUDED.insider_value_total,
+                    insider_value_bullish = EXCLUDED.insider_value_bullish,
+                    insider_value_bearish = EXCLUDED.insider_value_bearish,
+                    news_total = EXCLUDED.news_total,
+                    news_bullish = EXCLUDED.news_bullish,
+                    news_bearish = EXCLUDED.news_bearish,
+                    news_neutral = EXCLUDED.news_neutral,
+                    weighted_bullish = EXCLUDED.weighted_bullish,
+                    weighted_bearish = EXCLUDED.weighted_bearish,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (
+                    ticker, detail["biz_date"], data["signal"], data["confidence"],
+                    detail["insider_total"], detail["insider_bullish"], detail["insider_bearish"],
+                    detail["insider_value_total"], detail["insider_value_bullish"], detail["insider_value_bearish"],
+                    detail["insider_weight"], detail["news_total"], detail["news_bullish"], detail["news_bearish"], detail["news_neutral"],
+                    detail["news_weight"], detail["weighted_bullish"], detail["weighted_bearish"]
+                )
+            )
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"Error saving sentiment data: {e}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+def save_technical_data(technical_data, biz_date):
+    """Save technical analysis data to database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        for ticker, data in technical_data.items():
+            strategies = data["strategy_signals"]
+            
+            cursor.execute(
+                """
+                INSERT INTO technicals (
+                    ticker, biz_date, signal, confidence,
+                    trend_signal, trend_confidence, trend_score,
+                    trend_adx_threshold, trend_ema_crossover_threshold,
+                    ema_8, ema_21, ema_55, adx, di_plus, di_minus,
+                    mr_signal, mr_confidence, mr_score,
+                    mr_z_score_threshold, mr_rsi_low_threshold, mr_rsi_high_threshold,
+                    z_score, bb_upper, bb_lower, rsi_14, rsi_28,
+                    momentum_signal, momentum_confidence, momentum_score,
+                    momentum_min_strength, momentum_volume_ratio_threshold,
+                    mom_1m, mom_3m, mom_6m, volume_ratio,
+                    volatility_signal, volatility_confidence, volatility_score,
+                    volatility_low_regime, volatility_high_regime, volatility_z_threshold,
+                    hist_vol_21d, vol_regime, vol_z_score, atr_ratio,
+                    stat_arb_signal, stat_arb_confidence, stat_arb_score,
+                    stat_arb_hurst_threshold, stat_arb_skew_threshold,
+                    hurst_exp, skewness, kurtosis
+                ) VALUES (
+                    %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s
+                )
+                ON CONFLICT (ticker, biz_date) 
+                DO UPDATE SET
+                    signal = EXCLUDED.signal,
+                    confidence = EXCLUDED.confidence,
+                    trend_signal = EXCLUDED.trend_signal,
+                    trend_confidence = EXCLUDED.trend_confidence,
+                    trend_score = EXCLUDED.trend_score,
+                    ema_8 = EXCLUDED.ema_8,
+                    ema_21 = EXCLUDED.ema_21,
+                    ema_55 = EXCLUDED.ema_55,
+                    adx = EXCLUDED.adx,
+                    di_plus = EXCLUDED.di_plus,
+                    di_minus = EXCLUDED.di_minus,
+                    mr_signal = EXCLUDED.mr_signal,
+                    mr_confidence = EXCLUDED.mr_confidence,
+                    mr_score = EXCLUDED.mr_score,
+                    z_score = EXCLUDED.z_score,
+                    bb_upper = EXCLUDED.bb_upper,
+                    bb_lower = EXCLUDED.bb_lower,
+                    rsi_14 = EXCLUDED.rsi_14,
+                    rsi_28 = EXCLUDED.rsi_28,
+                    momentum_signal = EXCLUDED.momentum_signal,
+                    momentum_confidence = EXCLUDED.momentum_confidence,
+                    momentum_score = EXCLUDED.momentum_score,
+                    mom_1m = EXCLUDED.mom_1m,
+                    mom_3m = EXCLUDED.mom_3m,
+                    mom_6m = EXCLUDED.mom_6m,
+                    volume_ratio = EXCLUDED.volume_ratio,
+                    volatility_signal = EXCLUDED.volatility_signal,
+                    volatility_confidence = EXCLUDED.volatility_confidence,
+                    volatility_score = EXCLUDED.volatility_score,
+                    hist_vol_21d = EXCLUDED.hist_vol_21d,
+                    vol_regime = EXCLUDED.vol_regime,
+                    vol_z_score = EXCLUDED.vol_z_score,
+                    atr_ratio = EXCLUDED.atr_ratio,
+                    stat_arb_signal = EXCLUDED.stat_arb_signal,
+                    stat_arb_confidence = EXCLUDED.stat_arb_confidence,
+                    stat_arb_score = EXCLUDED.stat_arb_score,
+                    hurst_exp = EXCLUDED.hurst_exp,
+                    skewness = EXCLUDED.skewness,
+                    kurtosis = EXCLUDED.kurtosis,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (
+                    ticker, biz_date, data["signal"], data["confidence"],
+                    strategies["trend"]["signal"], strategies["trend"]["confidence"], strategies["trend"]["score"],
+                    strategies["trend"]["adx_threshold"], strategies["trend"]["ema_crossover_threshold"],
+                    strategies["trend"]["ema_8"], strategies["trend"]["ema_21"], strategies["trend"]["ema_55"],
+                    strategies["trend"]["adx"], strategies["trend"]["di_plus"], strategies["trend"]["di_minus"],
+                    strategies["mean_reversion"]["signal"], strategies["mean_reversion"]["confidence"],
+                    strategies["mean_reversion"]["score"], strategies["mean_reversion"]["z_score_threshold"],
+                    strategies["mean_reversion"]["rsi_low_threshold"], strategies["mean_reversion"]["rsi_high_threshold"],
+                    strategies["mean_reversion"]["z_score"], strategies["mean_reversion"]["bb_upper"],
+                    strategies["mean_reversion"]["bb_lower"], strategies["mean_reversion"]["rsi_14"],
+                    strategies["mean_reversion"]["rsi_28"], strategies["momentum"]["signal"],
+                    strategies["momentum"]["confidence"], strategies["momentum"]["score"],
+                    strategies["momentum"]["min_strength"], strategies["momentum"]["volume_ratio_threshold"],
+                    strategies["momentum"]["mom_1m"], strategies["momentum"]["mom_3m"],
+                    strategies["momentum"]["mom_6m"], strategies["momentum"]["volume_ratio"],
+                    strategies["volatility"]["signal"], strategies["volatility"]["confidence"],
+                    strategies["volatility"]["score"], strategies["volatility"]["low_regime"],
+                    strategies["volatility"]["high_regime"], strategies["volatility"]["z_threshold"],
+                    strategies["volatility"]["hist_vol_21d"], strategies["volatility"]["regime"],
+                    strategies["volatility"]["z_score"], strategies["volatility"]["atr_ratio"],
+                    strategies["stat_arb"]["signal"], strategies["stat_arb"]["confidence"],
+                    strategies["stat_arb"]["score"], strategies["stat_arb"]["hurst_threshold"],
+                    strategies["stat_arb"]["skew_threshold"], strategies["stat_arb"]["hurst_exp"],
+                    strategies["stat_arb"]["skewness"], strategies["stat_arb"]["kurtosis"]
+                )
+            )
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"Error saving technical data: {e}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+def get_db_connection():
+    """Get a database connection using environment variables."""
+    try:
+        db_url = os.environ.get("DATABASE_URL")
+        if not db_url:
+            raise ValueError("DATABASE_URL environment variable not set")
+        return psycopg2.connect(db_url)
+    except Exception as e:
+        print(f"{Fore.RED}Error connecting to database: {e}{Style.RESET_ALL}")
+        raise
