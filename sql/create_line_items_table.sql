@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS line_items (
     gross_margin NUMERIC(25, 6),
     return_on_invested_capital NUMERIC(25, 6),
     ebitda NUMERIC(25, 6),
+    ebit NUMERIC(25, 6),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

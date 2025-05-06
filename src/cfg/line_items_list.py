@@ -4,7 +4,7 @@ LINE_ITEMS = [
     "net_income",
     "operating_income",
     "ebitda",
-    #"ebit",
+    "ebit",
     "earnings_per_share",
     "research_and_development",
     

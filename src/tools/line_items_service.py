@@ -8,6 +8,18 @@ import pandas as pd
 from src.data.models import LineItem
 from src.data.cache import get_cache
 from src.tools.api_db import get_line_items_db, save_line_items
+from src.cfg.line_items_list import LINE_ITEMS
+
+# Default line items to query when none are specified
+DEFAULT_LINE_ITEMS = [
+    'revenue', 
+    'net_income', 
+    'earnings_per_share', 
+    'ebit',
+    'total_assets', 
+    'total_liabilities', 
+    'shareholders_equity'
+]
 
 class LineItemsService:
     """Service for retrieving and managing line items data."""
@@ -48,16 +60,7 @@ class LineItemsService:
         for item in line_items:
             # Convert to snake_case if needed (e.g. "cashAndEquivalents" -> "cash_and_equivalents")
             normalized_item = item.lower().replace(' ', '_')
-            if normalized_item in [
-                'cash_and_equivalents', 'current_assets', 'current_liabilities',
-                'outstanding_shares', 'total_assets', 'shareholders_equity',
-                'total_liabilities', 'goodwill_and_intangible_assets', 'total_debt',
-                'free_cash_flow', 'net_income', 'dividends_and_other_cash_distributions',
-                'depreciation_and_amortization', 'capital_expenditure', 'earnings_per_share',
-                'research_and_development', 'operating_income', 'revenue', 'working_capital',
-                'operating_margin', 'book_value_per_share', 'gross_margin',
-                'return_on_invested_capital', 'ebitda'
-            ]:
+            if normalized_item in LINE_ITEMS:
                 valid_line_items.append(normalized_item)
         
         if not valid_line_items:

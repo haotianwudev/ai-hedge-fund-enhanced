@@ -58,7 +58,7 @@ def get_financial_metrics(
     ticker: str,
     end_date: str,
     period: str = "ttm",
-    limit: int = 10,
+    limit: int = 50,
 ) -> list[FinancialMetrics]:
     """Fetch financial metrics from cache or API."""
     # Check cache first
@@ -93,11 +93,11 @@ def get_financial_metrics(
 
 
 def search_line_items(
-    ticker: str,
+    tickers: list[str],
     line_items: list[str],
     end_date: str,
     period: str = "ttm",
-    limit: int = 10,
+    limit: int = 1000,
 ) -> list[LineItem]:
     """Fetch line items from API."""
     # If not in cache or insufficient data, fetch from API
@@ -108,7 +108,7 @@ def search_line_items(
     url = "https://api.financialdatasets.ai/financials/search/line-items"
 
     body = {
-        "tickers": [ticker],
+        "tickers": tickers,
         "line_items": line_items,
         "end_date": end_date,
         "period": period,

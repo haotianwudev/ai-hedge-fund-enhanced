@@ -11,6 +11,7 @@ import psycopg2
 from psycopg2.extras import execute_values
 from colorama import Fore, Style
 from datetime import datetime
+from src.cfg.line_items_list import LINE_ITEMS
 
 def save_to_db(data, upload_func, table_name=None, verbose=False):
     """Generic function to save data to database with standardized logging"""
@@ -354,24 +355,12 @@ def load_line_items_to_db(tickers, end_date, verbose=False):
         if verbose:
             print(f"Loading line items for {len(tickers)} tickers...")
         
-        # Get line items for each ticker individually since search_line_items() takes single ticker
-        all_line_items = []
-        for ticker in tickers:
-            try:
-                # Get default line items to search for
-                line_items = [
-                    'revenue', 'net_income', 'earnings_per_share', 
-                    'total_assets', 'total_liabilities', 'shareholders_equity'
-                ]
-                items = search_line_items(
-                    ticker=ticker,
-                    line_items=line_items,
-                    end_date=end_date
-                )
-                if items:
-                    all_line_items.extend(items)
-            except Exception as e:
-                print(f"{Fore.RED}Error getting line items for {ticker}: {e}{Style.RESET_ALL}")
+        all_line_items = search_line_items(
+            tickers=tickers,
+            line_items=LINE_ITEMS,
+            end_date=end_date
+        )
+
         if not all_line_items:
             if verbose:
                 print(f"{Fore.YELLOW}No line items found{Style.RESET_ALL}")

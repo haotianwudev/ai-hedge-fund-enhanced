@@ -471,20 +471,8 @@ def save_line_items(ticker: str, line_items: list[LineItem]) -> bool:
                     if field_name in ['ticker', 'report_period', 'period', 'currency']:
                         continue  # Skip standard fields already added
                     
-                    # Only add fields that are financial metrics
-                    if field_name in [
-                        'cash_and_equivalents', 'current_assets', 'current_liabilities', 
-                        'outstanding_shares', 'total_assets', 'shareholders_equity', 
-                        'total_liabilities', 'goodwill_and_intangible_assets', 
-                        'total_debt', 'free_cash_flow', 'net_income',
-                        'dividends_and_other_cash_distributions', 'depreciation_and_amortization',
-                        'capital_expenditure', 'earnings_per_share', 'research_and_development',
-                        'operating_income', 'revenue', 'working_capital', 'operating_margin',
-                        'book_value_per_share', 'gross_margin', 'return_on_invested_capital',
-                        'ebitda'
-                    ]:
-                        fields.append(field_name)
-                        values.append(field_value)
+                    fields.append(field_name)
+                    values.append(field_value)
                 
                 # Build the SQL query with fields that exist
                 placeholders = ', '.join(['%s'] * len(fields))

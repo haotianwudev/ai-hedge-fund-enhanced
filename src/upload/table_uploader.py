@@ -44,7 +44,6 @@ from src.tools.db_upload import (
     save_insider_trades_to_db,
     save_line_items_to_db
 )
-from tools.line_items_list import get_all_line_items
 
 # Initialize colorama
 init(autoreset=True)
