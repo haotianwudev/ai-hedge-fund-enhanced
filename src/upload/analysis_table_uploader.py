@@ -26,7 +26,7 @@ from utils.analysts import ANALYST_CONFIG, get_analyst_nodes
 from utils.progress import progress
 from llm.models import ModelProvider
 from utils.logging import configure_logging
-from tools.db_upload import save_to_db
+from tools.db_upload import save_to_db, save_ai_analysis_data
 from cfg.sql_table_upload import TABLE_UPLOAD_CONFIG
 
 # Load environment variables from .env file

@@ -1,15 +1,16 @@
-from graph.state import AgentState, show_agent_reasoning
+from src.graph.state import AgentState, show_agent_reasoning
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 import json
 from typing_extensions import Literal
-from tools.financial_metrics_service import get_financial_metrics
-from tools.price_service import get_price_data
-from tools.company_facts_service import get_market_cap
-from utils.llm import call_llm
-from utils.progress import progress
+from src.tools.financial_metrics_service import get_financial_metrics
+from src.tools.price_service import get_price_data
+from src.tools.company_facts_service import get_market_cap
+from src.utils.llm import call_llm
+from src.utils.progress import progress
 from typing import Optional
+from src.llm.models import get_model, get_model_info
 
 class SophieSignal(BaseModel):
     signal: Literal["bullish", "bearish", "neutral"]
@@ -79,7 +80,10 @@ def sophie_agent(state: AgentState):
         progress.update_status("sophie_agent", ticker, "Done")
 
     # Create the message
-    message = HumanMessage(content=json.dumps(sophie_analysis), name="sophie_agent")
+    message = HumanMessage(
+        content=json.dumps(sophie_analysis),
+        name="sophie_agent"
+    )
 
     # Show reasoning if requested
     if state["metadata"]["show_reasoning"]:
@@ -92,7 +96,7 @@ def sophie_agent(state: AgentState):
 
 def get_valuation_analysis(ticker: str) -> dict:
     """Get valuation analysis from database including all methods and weighted result"""
-    from tools.api_db import get_valuation_db
+    from src.tools.api_db import get_valuation_db
     from datetime import datetime
     
     # Get latest valuation data
@@ -122,7 +126,7 @@ def get_valuation_analysis(ticker: str) -> dict:
 
 def get_technical_analysis(ticker: str) -> dict:
     """Get latest technical analysis from database"""
-    from tools.api_db import get_technicals_db
+    from src.tools.api_db import get_technicals_db
     from datetime import datetime
     
     # Get latest technical data
@@ -171,7 +175,7 @@ def get_technical_analysis(ticker: str) -> dict:
 
 def get_sentiment_analysis(ticker: str) -> dict:
     """Get sentiment analysis from database"""
-    from tools.api_db import get_sentiment_db
+    from src.tools.api_db import get_sentiment_db
     from datetime import datetime
     
     # Get latest sentiment data
@@ -206,7 +210,7 @@ def get_sentiment_analysis(ticker: str) -> dict:
 
 def get_fundamental_analysis(ticker: str) -> dict:
     """Get fundamental analysis from database"""
-    from tools.api_db import get_fundamentals_db
+    from src.tools.api_db import get_fundamentals_db
     from datetime import datetime
     
     # Get latest fundamentals data
