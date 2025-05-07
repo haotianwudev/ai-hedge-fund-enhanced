@@ -1,11 +1,13 @@
 COVERED_STOCKS = [
     'AAPL',  # Apple Inc.
     'MSFT',  # Microsoft Corporation
+    'NVDA',  # NVIDIA Corporation
+    
     'AMZN',  # Amazon.com Inc.
     'GOOGL', # Alphabet Inc. (Google)
     'META',  # Meta Platforms (Facebook)
     'TSLA',  # Tesla Inc.
-    'NVDA',  # NVIDIA Corporation
+    
     'JPM',   # JPMorgan Chase & Co.
     'GS',    # Goldman Sachs
     'KO',    # Coca-Cola
@@ -23,10 +25,10 @@ COVERED_STOCKS = [
     # 'INTC',  # Intel Corporation
     # 'CSCO',  # Cisco Systems
     # 'NFLX',  # Netflix
-    # 'PYPL',  # PayPal Holdings
-    # 'ADBE',  # Adobe Inc.
+     'PYPL',  # PayPal Holdings
+     'ADBE',  # Adobe Inc.
     # 'CRM',   # Salesforce    
-    # 'PEP',   # PepsiCo
+     'PEP',   # PepsiCo
     # 'ABBV',  # AbbVie Inc.
     # 'T',     # AT&T
     # 'VZ',    # Verizon Communications

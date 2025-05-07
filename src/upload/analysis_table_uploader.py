@@ -24,6 +24,23 @@ from graph.state import AgentState
 from utils.display import print_trading_output
 from utils.analysts import ANALYST_CONFIG, get_analyst_nodes
 from utils.progress import progress
+
+# Hardcoded list of agents to include in analysis
+AGENT_LIST = [
+    'warren_buffett',
+    'charlie_munger', 
+    'phil_fisher',
+    'ben_graham',
+    'peter_lynch',
+    'cathie_wood',
+    'michael_burry',
+    'bill_ackman',
+    'stanley_druckenmiller',
+    'fundamentals_analyst', 
+    'valuation_analyst',
+    'sentiment_analyst',
+    'technical_analyst'
+]
 from llm.models import ModelProvider
 from utils.logging import configure_logging
 from tools.db_upload import save_to_db, save_ai_analysis_data
@@ -87,22 +104,43 @@ def run_hedge_fund(
             "decisions": parse_hedge_fund_response(final_state["messages"][-1].content),
             "analyst_signals": final_state["data"]["analyst_signals"],
         }
+        
+        print(f"\nAll analyst signals:\n{json.dumps(final_state['data']['analyst_signals'], indent=2)}")
 
         # Save analysis data to database
         for agent_name, agent_data in result["analyst_signals"].items():
+            # Get agent key by comparing function names
             agent_key = agent_name.replace("_agent", "")
-            table_name = agent_key if agent_key in TABLE_UPLOAD_CONFIG else "ai_analysis"
-            
-            if table_name == 'ai_analysis':
+            if agent_key == "technical_analyst":
+                agent_key = 'technicals'
+
+            if agent_key in TABLE_UPLOAD_CONFIG:
+                table_config = TABLE_UPLOAD_CONFIG[agent_key]
+                upload_func = table_config['upload_function']
+                
+                # Prepare params based on function requirements
+                if agent_key == 'valuation':
+                    upload_func(agent_data)
+                elif agent_key == 'sentiment':
+                    upload_func(agent_data)
+                elif agent_key in ['fundamentals', 'technicals']:
+                    upload_func(agent_data, end_date)
+                else:
+                    # For other tables pass all params
+                    upload_func(
+                        agent_name=agent_name,
+                        analysis_data=agent_data,
+                        biz_date=end_date,
+                        state={'metadata': {'model_name': model_name, 'model_provider': model_provider}}
+                    )
+            else:
+                # Fallback to ai_analysis table for unknown agents
                 save_ai_analysis_data(
                     agent_name=agent_name,
                     analysis_data=agent_data,
                     biz_date=end_date,
                     state={'metadata': {'model_name': model_name, 'model_provider': model_provider}}
                 )
-            else:
-                # Handle other table types if needed
-                pass
 
         return result
     finally:
@@ -114,22 +152,24 @@ def create_workflow(selected_analysts=None):
     workflow.add_node("start_node", lambda state: state)
     
     analyst_nodes = get_analyst_nodes()
-    selected_analysts = selected_analysts or list(analyst_nodes.keys())
+    selected_analysts = selected_analysts or AGENT_LIST
     
     for analyst_key in selected_analysts:
+        if analyst_key not in analyst_nodes:
+            continue
         node_name, node_func = analyst_nodes[analyst_key]
         workflow.add_node(node_name, node_func)
         workflow.add_edge("start_node", node_name)
 
-    workflow.add_node("risk_management_agent", risk_management_agent)
-    workflow.add_node("portfolio_management_agent", portfolio_management_agent)
+    # workflow.add_node("risk_management_agent", risk_management_agent)
+    # workflow.add_node("portfolio_management_agent", portfolio_management_agent)
     
-    for analyst_key in selected_analysts:
-        node_name = analyst_nodes[analyst_key][0]
-        workflow.add_edge(node_name, "risk_management_agent")
+    # for analyst_key in selected_analysts:
+    #     node_name = analyst_nodes[analyst_key][0]
+    #     workflow.add_edge(node_name, "risk_management_agent")
 
-    workflow.add_edge("risk_management_agent", "portfolio_management_agent")
-    workflow.add_edge("portfolio_management_agent", END)
+    # workflow.add_edge("risk_management_agent", "portfolio_management_agent")
+    # workflow.add_edge("portfolio_management_agent", END)
     workflow.set_entry_point("start_node")
     
     return workflow
@@ -147,7 +187,7 @@ if __name__ == "__main__":
 
     configure_logging(save_logs=args.savelog)
     tickers = [t.strip().upper() for t in args.tickers.split(",")]
-    selected_analysts = list(get_analyst_nodes().keys())
+    selected_analysts = AGENT_LIST  # Use only the hardcoded list by default
     
     print(f"\nUsing analysts: {', '.join(Fore.GREEN + ANALYST_CONFIG[choice]['display_name'] + Style.RESET_ALL for choice in selected_analysts)}")
     print(f"\nUsing {Fore.CYAN}DeepSeek{Style.RESET_ALL} model: {Fore.GREEN + Style.BRIGHT}deepseek-v3{Style.RESET_ALL}\n")
@@ -188,4 +228,4 @@ if __name__ == "__main__":
         model_name=MODEL_NAME,
         model_provider=MODEL_PROVIDER,
     )
-    print_trading_output(result)
+    #print_trading_output(result)
