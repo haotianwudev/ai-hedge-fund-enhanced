@@ -416,6 +416,9 @@ def save_ai_analysis_data(agent_name, analysis_data, biz_date, state=None):
     
     try:
         for ticker, data in analysis_data.items():
+            if data["confidence"] == 0:
+                continue
+                
             cursor.execute(
                 """
                 INSERT INTO ai_analysis (
