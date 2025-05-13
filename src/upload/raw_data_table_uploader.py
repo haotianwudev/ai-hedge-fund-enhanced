@@ -38,7 +38,7 @@ from src.tools.db_upload import (
     upload_financial_metrics,
     upload_insider_trades,
     save_company_facts_to_db,
-    save_prices_to_db,
+    upload_prices_financialdatasets,
     save_company_news_to_db,
     save_financial_metrics_to_db,
     save_insider_trades_to_db,

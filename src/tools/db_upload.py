@@ -125,14 +125,35 @@ def save_company_facts_to_db(company_facts, table_name=None):
         print(f"{Fore.RED}Error saving company facts to database: {e}{Style.RESET_ALL}")
         return False
 
+def upload_prices_financialdatasets(ticker, start_date, end_date):
+    """
+    Fetch price data using the API and save it to the PostgreSQL database.
+    Takes ticker, start_date, and end_date as parameters, fetches the data,
+    and saves it to the database.
+    
+    Returns:
+        dict: Status object with 'success' (bool) and 'no_data' (bool) fields
+    """
+    try:
+        from tools.api import get_prices
+        
+        prices = get_prices(ticker, start_date, end_date)
+        if not prices:
+            return {'success': False, 'no_data': True}
+        
+        from tools.api_db import save_prices
+        result = save_prices(ticker, prices)
+        return {'success': result, 'no_data': False}
+    except Exception as e:
+        print(f"{Fore.RED}Error saving price data to database: {e}{Style.RESET_ALL}")
+        return {'success': False, 'no_data': False}
+
 def upload_prices(tickers, start_date, end_date, verbose=False):
     """Load and save price data for multiple tickers to the PostgreSQL database."""
     if not tickers:
         return False
         
     try:
-        from tools.api import get_prices
-        
         success = []
         failed = []
         
@@ -141,14 +162,12 @@ def upload_prices(tickers, start_date, end_date, verbose=False):
                 print(f"Loading prices for {ticker}...", end=" ", flush=True)
             
             try:
-                prices = get_prices(ticker, start_date, end_date)
-                if not prices:
+                result = upload_prices_financialdatasets(ticker, start_date, end_date)
+                if result['no_data']:
                     if verbose:
                         print(f"{Fore.YELLOW}No data{Style.RESET_ALL}")
                     failed.append(ticker)
-                    continue
-                    
-                if save_prices_to_db(ticker, prices):
+                elif result['success']:
                     if verbose:
                         print(f"{Fore.GREEN}Success{Style.RESET_ALL}")
                     success.append(ticker)
@@ -165,21 +184,6 @@ def upload_prices(tickers, start_date, end_date, verbose=False):
         
     except Exception as e:
         print(f"{Fore.RED}Error in batch price loading: {e}{Style.RESET_ALL}")
-        return False
-
-def save_prices_to_db(ticker, prices):
-    """
-    Save price data to the PostgreSQL database using the api_db module.
-    This is a simple wrapper around the api_db.save_prices function.
-    """
-    if not prices:
-        return False
-    
-    try:
-        from tools.api_db import save_prices
-        return save_prices(ticker, prices)
-    except Exception as e:
-        print(f"{Fore.RED}Error saving price data to database: {e}{Style.RESET_ALL}")
         return False
 
 def upload_company_news(tickers, end_date, verbose=False):
