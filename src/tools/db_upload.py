@@ -31,7 +31,7 @@ def save_to_db(data, upload_func, table_name=None, verbose=False):
             print(f"{Fore.RED}Failed to save data: {e}{Style.RESET_ALL}")
         return False
 
-def load_company_facts_to_db(tickers, verbose=False):
+def upload_company_facts(tickers, verbose=False):
     """Load and save company facts for multiple tickers to the PostgreSQL database."""
     if not tickers:
         return False
@@ -125,7 +125,7 @@ def save_company_facts_to_db(company_facts, table_name=None):
         print(f"{Fore.RED}Error saving company facts to database: {e}{Style.RESET_ALL}")
         return False
 
-def load_prices_to_db(tickers, start_date, end_date, verbose=False):
+def upload_prices(tickers, start_date, end_date, verbose=False):
     """Load and save price data for multiple tickers to the PostgreSQL database."""
     if not tickers:
         return False
@@ -182,7 +182,7 @@ def save_prices_to_db(ticker, prices):
         print(f"{Fore.RED}Error saving price data to database: {e}{Style.RESET_ALL}")
         return False
 
-def load_company_news_to_db(tickers, end_date, verbose=False):
+def upload_company_news(tickers, end_date, verbose=False):
     """Load and save company news for multiple tickers to the PostgreSQL database."""
     if not tickers:
         return False
@@ -236,7 +236,7 @@ def save_company_news_to_db(ticker, news):
         print(f"{Fore.RED}Error saving company news to database: {e}{Style.RESET_ALL}")
         return False
 
-def load_financial_metrics_to_db(tickers, end_date, verbose=False):
+def upload_financial_metrics(tickers, end_date, verbose=False):
     """Load and save financial metrics for multiple tickers to the PostgreSQL database."""
     if not tickers:
         return False
@@ -290,7 +290,7 @@ def save_financial_metrics_to_db(metrics):
         print(f"{Fore.RED}Error saving financial metrics to database: {e}{Style.RESET_ALL}")
         return False
 
-def load_insider_trades_to_db(tickers, end_date, verbose=False):
+def upload_insider_trades(tickers, end_date, verbose=False):
     """Load and save insider trades for multiple tickers to the PostgreSQL database."""
     if not tickers:
         return False
@@ -344,7 +344,7 @@ def save_insider_trades_to_db(ticker, trades):
         print(f"{Fore.RED}Error saving insider trades to database: {e}{Style.RESET_ALL}")
         return False
 
-def load_line_items_to_db(tickers, end_date, verbose=False):
+def upload_line_items(tickers, end_date, verbose=False):
     """Batch load line items for multiple tickers to PostgreSQL database."""
     if not tickers:
         return {'success': [], 'failed': []}
@@ -409,7 +409,7 @@ def save_line_items_to_db(ticker, line_items):
         print(f"{Fore.RED}Error saving line items to database: {e}{Style.RESET_ALL}")
         return False
 
-def save_ai_analysis_data(agent_name, analysis_data, biz_date, state=None):
+def upload_ai_analysis_result(agent_name, analysis_data, biz_date, state=None):
     """Save AI agent analysis data to unified ai_analysis table."""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -455,7 +455,7 @@ def save_ai_analysis_data(agent_name, analysis_data, biz_date, state=None):
         cursor.close()
         conn.close()
 
-def save_valuation_data(valuation_data):
+def upload_valuation_result(valuation_data):
     """Save valuation data to the database with UPSERT functionality."""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -502,7 +502,7 @@ def save_valuation_data(valuation_data):
         cursor.close()
         conn.close()
 
-def save_fundamentals_data(fundamentals_data, biz_date):
+def upload_fundamentals_result(fundamentals_data, biz_date):
     """Save fundamentals analysis data to database."""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -595,7 +595,7 @@ def save_fundamentals_data(fundamentals_data, biz_date):
         cursor.close()
         conn.close()
 
-def save_sentiment_data(sentiment_data):
+def upload_sentiment_result(sentiment_data):
     """Save sentiment data to the database."""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -654,7 +654,7 @@ def save_sentiment_data(sentiment_data):
         cursor.close()
         conn.close()
 
-def save_technical_data(technical_data: dict, biz_date: str):
+def upload_technical_result(technical_data: dict, biz_date: str):
     """Save technical analysis data to database."""
     conn = get_db_connection()
     cursor = conn.cursor()

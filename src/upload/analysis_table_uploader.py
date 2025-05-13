@@ -43,7 +43,7 @@ AGENT_LIST = [
 ]
 from llm.models import ModelProvider
 from utils.logging import configure_logging
-from tools.db_upload import save_to_db, save_ai_analysis_data
+from tools.db_upload import save_to_db, upload_ai_analysis_result
 from cfg.sql_table_upload import TABLE_UPLOAD_CONFIG
 
 # Load environment variables from .env file
@@ -135,7 +135,7 @@ def run_hedge_fund(
                     )
             else:
                 # Fallback to ai_analysis table for unknown agents
-                save_ai_analysis_data(
+                upload_ai_analysis_result(
                     agent_name=agent_name,
                     analysis_data=agent_data,
                     biz_date=end_date,

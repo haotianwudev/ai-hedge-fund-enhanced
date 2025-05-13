@@ -32,11 +32,11 @@ from src.tools.api import get_company_facts, get_prices, get_company_news, get_f
 from src.cfg.sql_table_upload import TABLE_UPLOAD_CONFIG
 from src.tools.db_upload import (
     save_to_db,  # Generic function we'll use
-    load_company_facts_to_db,
-    load_prices_to_db,
-    load_company_news_to_db,
-    load_financial_metrics_to_db,
-    load_insider_trades_to_db,
+    upload_company_facts,
+    upload_prices,
+    upload_company_news,
+    upload_financial_metrics,
+    upload_insider_trades,
     save_company_facts_to_db,
     save_prices_to_db,
     save_company_news_to_db,
