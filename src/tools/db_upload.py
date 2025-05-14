@@ -37,7 +37,7 @@ def upload_company_facts(tickers, verbose=False):
         return False
         
     try:
-        from tools.api import get_company_facts
+        from src.tools.api import get_company_facts
         
         success = []
         failed = []
@@ -135,56 +135,342 @@ def upload_prices_financialdatasets(ticker, start_date, end_date):
         dict: Status object with 'success' (bool) and 'no_data' (bool) fields
     """
     try:
-        from tools.api import get_prices
+        from src.tools.api import get_prices
         
         prices = get_prices(ticker, start_date, end_date)
         if not prices:
             return {'success': False, 'no_data': True}
         
-        from tools.api_db import save_prices
+        from src.tools.api_db import save_prices
         result = save_prices(ticker, prices)
         return {'success': result, 'no_data': False}
     except Exception as e:
         print(f"{Fore.RED}Error saving price data to database: {e}{Style.RESET_ALL}")
         return {'success': False, 'no_data': False}
 
-def upload_prices(tickers, start_date, end_date, verbose=False):
-    """Load and save price data for multiple tickers to the PostgreSQL database."""
+def upload_prices(tickers, start_date, end_date, verbose=False, data_source='auto'):
+    """
+    Load and save price data for multiple tickers to the PostgreSQL database.
+    
+    Implements waterfall logic for choosing data source:
+    - If ticker is "VIX" or "SPY", use Yahoo Finance (with special handling for VIX -> ^VIX)
+    - If end_date is within last 2 years, try Polygon.io first
+    - Otherwise or if previous methods fail, use Financial Datasets (fallback)
+    
+    Args:
+        tickers: List of ticker symbols
+        start_date: Start date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format
+        verbose: Whether to print verbose output
+        data_source: The data source to use ('auto', 'financial_datasets', 'polygon', 'yfinance')
+                    'auto' implements the waterfall logic
+    
+    Returns:
+        dict: Results with 'success' and 'failed' lists of tickers
+    """
     if not tickers:
-        return False
+        return {'success': [], 'failed': []}
+    
+    print(f"\n{'='*30}")
+    print(f"UPLOAD PRICES: {len(tickers)} tickers, mode: {data_source}")
+    print(f"Date range: {start_date} to {end_date}")
+    print(f"{'='*30}\n")
         
     try:
         success = []
         failed = []
         
         for ticker in tickers:
+            print(f"\n{'-'*50}")
             if verbose:
-                print(f"Loading prices for {ticker}...", end=" ", flush=True)
+                print(f"Processing {ticker}...", end=" ", flush=True)
+            else:
+                print(f"Processing {ticker}...")
             
+            # Determine data source to use
+            selected_source = data_source
+            result = None
+            
+            # Apply waterfall logic if 'auto' is specified
+            if data_source.lower() == 'auto':
+                print(f"Using waterfall logic for data source selection")
+                
+                # Check if ticker is "VIX" or "SPY"
+                if ticker in ["VIX", "SPY"]:
+                    selected_source = 'yfinance'
+                    print(f"STRATEGY: Ticker is {ticker}, using Yahoo Finance as primary source")
+                    if verbose:
+                        print(f"Using Yahoo Finance for {ticker}...", end=" ", flush=True)
+                    else:
+                        print(f"Using Yahoo Finance for {ticker}...")
+                    
+                    try:
+                        # For VIX, use ^VIX ticker symbol with Yahoo Finance
+                        yf_ticker = f"^{ticker}" if ticker == "VIX" else ticker
+                        print(f"API CALL: Yahoo Finance - Fetching {yf_ticker} from {start_date} to {end_date}")
+                        result = upload_prices_yfinance(yf_ticker, start_date, end_date)
+                        
+                        # Special handling: Save to database with the original ticker
+                        if result['success'] and ticker == "VIX":
+                            print(f"{Fore.GREEN}Success - Using ^VIX data saved as VIX{Style.RESET_ALL}")
+                        
+                        if result['success']:
+                            if verbose and ticker != "VIX":  # Already printed success for VIX above
+                                print(f"{Fore.GREEN}Success{Style.RESET_ALL}")
+                            success.append(ticker)
+                            print(f"SUCCESS: Yahoo Finance data for {ticker} saved to database")
+                            continue
+                    except Exception as e:
+                        if verbose:
+                            print(f"{Fore.YELLOW}Failed with Yahoo Finance: {str(e)}, trying next source...{Style.RESET_ALL}")
+                        print(f"ERROR: Yahoo Finance failed - {str(e)}")
+                        # Fall through to next data source
+                
+                # Check if end date is within 2 years
+                try:
+                    today = datetime.now()
+                    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+                    two_years_ago = today.replace(year=today.year - 2)
+                    
+                    if end_dt >= two_years_ago:
+                        selected_source = 'polygon'
+                        print(f"STRATEGY: Date range is within 2 years, using Polygon as primary/next source")
+                        if verbose:
+                            print(f"Using Polygon for {ticker}...", end=" ", flush=True)
+                        else:
+                            print(f"Using Polygon for {ticker}...")
+                        
+                        try:
+                            print(f"API CALL: Polygon - Fetching {ticker} from {start_date} to {end_date}")
+                            result = upload_prices_polygon(ticker, start_date, end_date)
+                            if result['success']:
+                                if verbose:
+                                    print(f"{Fore.GREEN}Success{Style.RESET_ALL}")
+                                success.append(ticker)
+                                print(f"SUCCESS: Polygon data for {ticker} saved to database")
+                                continue
+                            elif result['no_data']:
+                                print(f"INFO: Polygon returned no data for {ticker}, trying next source")
+                        except Exception as e:
+                            if verbose:
+                                print(f"{Fore.YELLOW}Failed with Polygon: {str(e)}, trying next source...{Style.RESET_ALL}")
+                            print(f"ERROR: Polygon failed - {str(e)}")
+                            # Fall through to next data source
+                except ValueError:
+                    # Invalid date format, continue to fallback
+                    print(f"WARNING: Invalid date format, skipping date check")
+                    pass
+                    
+                # Fallback to financial datasets
+                selected_source = 'financial_datasets'
+                print(f"STRATEGY: Using Financial Datasets as fallback/next source")
+                if verbose:
+                    print(f"Using Financial Datasets for {ticker}...", end=" ", flush=True)
+                else:
+                    print(f"Using Financial Datasets for {ticker}...")
+            else:
+                print(f"STRATEGY: Using {selected_source} as specified data source")
+            
+            # If we're here, either 'auto' logic didn't succeed yet, or a specific source was requested
+            if selected_source.lower() == 'yfinance':
+                # For VIX, use ^VIX ticker symbol with Yahoo Finance
+                yf_ticker = f"^{ticker}" if ticker == "VIX" and selected_source.lower() == 'yfinance' else ticker
+                print(f"API CALL: Yahoo Finance - Fetching {yf_ticker} from {start_date} to {end_date}")
+                upload_func = lambda t, s, e: upload_prices_yfinance(yf_ticker, s, e)
+            elif selected_source.lower() == 'polygon':
+                print(f"API CALL: Polygon - Fetching {ticker} from {start_date} to {end_date}")
+                upload_func = upload_prices_polygon
+            else:  # Default to financial_datasets
+                print(f"API CALL: Financial Datasets - Fetching {ticker} from {start_date} to {end_date}")
+                upload_func = upload_prices_financialdatasets
+                
             try:
-                result = upload_prices_financialdatasets(ticker, start_date, end_date)
+                if result is None:  # Only call if not already called above
+                    if selected_source.lower() == 'yfinance':
+                        # Special handling for direct call with specific source
+                        result = upload_func(ticker, start_date, end_date)
+                    else:
+                        result = upload_func(ticker, start_date, end_date)
+                    
                 if result['no_data']:
                     if verbose:
                         print(f"{Fore.YELLOW}No data{Style.RESET_ALL}")
                     failed.append(ticker)
+                    print(f"INFO: No data found for {ticker} using {selected_source}")
                 elif result['success']:
                     if verbose:
                         print(f"{Fore.GREEN}Success{Style.RESET_ALL}")
                     success.append(ticker)
+                    print(f"SUCCESS: {selected_source} data for {ticker} saved to database")
                 else:
                     if verbose:
                         print(f"{Fore.RED}Failed to save{Style.RESET_ALL}")
                     failed.append(ticker)
+                    print(f"ERROR: Failed to save {ticker} data from {selected_source}")
             except Exception as e:
                 if verbose:
                     print(f"{Fore.RED}Error: {e}{Style.RESET_ALL}")
                 failed.append(ticker)
+                print(f"EXCEPTION: Error processing {ticker} with {selected_source}: {str(e)}")
+            
+            print(f"{'-'*50}\n")
                 
+        print(f"\n{'='*30}")
+        print(f"UPLOAD SUMMARY:")
+        print(f"Total processed: {len(tickers)}")
+        print(f"Success: {len(success)} - {', '.join(success) if success else 'None'}")
+        print(f"Failed: {len(failed)} - {', '.join(failed) if failed else 'None'}")
+        print(f"{'='*30}\n")
+        
         return {'success': success, 'failed': failed}
         
     except Exception as e:
         print(f"{Fore.RED}Error in batch price loading: {e}{Style.RESET_ALL}")
-        return False
+        print(f"CRITICAL ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {'success': [], 'failed': tickers}
+
+def upload_prices_polygon(ticker, start_date, end_date):
+    """
+    Fetch price data using Polygon.io API and save it to the PostgreSQL database.
+    Takes ticker, start_date, and end_date as parameters, fetches the data,
+    and saves it to the database.
+    
+    Returns:
+        dict: Status object with 'success' (bool) and 'no_data' (bool) fields
+    """
+    try:
+        from src.tools.api_polygon import get_price_polygon
+        from src.data.models import Price
+        import pandas as pd
+        
+        print(f"POLYGON API: Initializing request for {ticker}")
+        print(f"POLYGON API: Date range {start_date} to {end_date}")
+        
+        # Check if we have the API key
+        import os
+        polygon_api_key = os.environ.get('POLYGON_API_KEY')
+        if not polygon_api_key:
+            print(f"POLYGON API: ERROR - POLYGON_API_KEY not found in environment variables!")
+            return {'success': False, 'no_data': False}
+        else:
+            masked_key = polygon_api_key[:4] + '****' + polygon_api_key[-4:] if len(polygon_api_key) > 8 else '****'
+            print(f"POLYGON API: Using API key {masked_key}")
+        
+        # Get price data from Polygon
+        print(f"POLYGON API: Sending request to Polygon.io API")
+        price_df = get_price_polygon(ticker, start_date, end_date)
+        
+        if price_df.empty:
+            print(f"POLYGON API: No data returned for {ticker}")
+            return {'success': False, 'no_data': True}
+        
+        print(f"POLYGON API: Received {len(price_df)} records for {ticker}")
+        print(f"POLYGON API: First date: {price_df.index[0]}, Last date: {price_df.index[-1]}")
+        
+        # Convert DataFrame to list of Price objects
+        print(f"POLYGON API: Converting data to Price objects")
+        prices = []
+        for index, row in price_df.iterrows():
+            # index is the biz_date in YYYY-MM-DD format
+            biz_date = index  # Use the index directly as biz_date
+            
+            # Generate timestamp with timezone info (UTC)
+            timestamp = datetime.strptime(biz_date, '%Y-%m-%d')
+            time_str = timestamp.strftime('%Y-%m-%dT00:00:00Z')
+            
+            price = Price(
+                ticker=ticker,
+                time=time_str,
+                biz_date=biz_date,  # Include explicit biz_date
+                open=float(row['open']),
+                high=float(row['high']),
+                low=float(row['low']),
+                close=float(row['close']),
+                volume=int(row['volume'])
+            )
+            prices.append(price)
+        
+        print(f"POLYGON API: Created {len(prices)} Price objects")
+        
+        # Save to database
+        from src.tools.api_db import save_prices
+        print(f"POLYGON API: Saving data to database")
+        result = save_prices(ticker, prices)
+        
+        if result:
+            print(f"POLYGON API: Successfully saved {len(prices)} records to database")
+        else:
+            print(f"POLYGON API: Failed to save data to database")
+            
+        return {'success': result, 'no_data': False}
+    except Exception as e:
+        print(f"{Fore.RED}Error saving Polygon price data to database: {e}{Style.RESET_ALL}")
+        print(f"POLYGON API ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {'success': False, 'no_data': False}
+
+def upload_prices_yfinance(ticker, start_date, end_date):
+    """
+    Fetch price data using Yahoo Finance API and save it to the PostgreSQL database.
+    Takes ticker, start_date, and end_date as parameters, fetches the data,
+    and saves it to the database.
+    
+    Special handling for VIX ticker:
+    - If ticker starts with '^', it's a Yahoo Finance special ticker
+    - The data will be saved to the database with the original ticker name (without '^')
+    
+    Returns:
+        dict: Status object with 'success' (bool) and 'no_data' (bool) fields
+    """
+    try:
+        from src.tools.api_yfinance import get_price_yahoofinance
+        from src.data.models import Price
+        import pandas as pd
+        
+        # Extract original ticker (for database storage) if it's a special YF ticker
+        original_ticker = ticker
+        if ticker.startswith('^'):
+            original_ticker = ticker[1:]  # Remove the '^' for database storage
+            print(f"Will save Yahoo Finance data for {ticker} as {original_ticker} in database")
+        
+        # Get price data from Yahoo Finance
+        price_df = get_price_yahoofinance(ticker, start_date, end_date)
+        
+        if price_df.empty:
+            return {'success': False, 'no_data': True}
+        
+        # Convert DataFrame to list of Price objects
+        prices = []
+        for index, row in price_df.iterrows():
+            # index is the biz_date in YYYY-MM-DD format
+            biz_date = index  # Use the index directly as biz_date
+            
+            # Generate timestamp with timezone info (UTC)
+            timestamp = datetime.strptime(biz_date, '%Y-%m-%d')
+            time_str = timestamp.strftime('%Y-%m-%dT00:00:00Z')
+            
+            price = Price(
+                ticker=original_ticker,  # Use the original ticker for storage
+                time=time_str,
+                biz_date=biz_date,  # Include explicit biz_date
+                open=float(row['open']),
+                high=float(row['high']),
+                low=float(row['low']),
+                close=float(row['close']),
+                volume=int(row['volume'])
+            )
+            prices.append(price)
+        
+        # Save to database
+        from src.tools.api_db import save_prices
+        result = save_prices(original_ticker, prices)
+        return {'success': result, 'no_data': False}
+    except Exception as e:
+        print(f"{Fore.RED}Error saving Yahoo Finance price data to database: {e}{Style.RESET_ALL}")
+        return {'success': False, 'no_data': False}
 
 def upload_company_news(tickers, end_date, verbose=False):
     """Load and save company news for multiple tickers to the PostgreSQL database."""
@@ -192,7 +478,7 @@ def upload_company_news(tickers, end_date, verbose=False):
         return False
         
     try:
-        from tools.api import get_company_news
+        from src.tools.api import get_company_news
         
         success = []
         failed = []
@@ -234,7 +520,7 @@ def save_company_news_to_db(ticker, news):
         return False
     
     try:
-        from tools.api_db import save_company_news
+        from src.tools.api_db import save_company_news
         return save_company_news(news)
     except Exception as e:
         print(f"{Fore.RED}Error saving company news to database: {e}{Style.RESET_ALL}")
@@ -246,7 +532,7 @@ def upload_financial_metrics(tickers, end_date, verbose=False):
         return False
         
     try:
-        from tools.api import get_financial_metrics
+        from src.tools.api import get_financial_metrics
         
         success = []
         failed = []
@@ -288,7 +574,7 @@ def save_financial_metrics_to_db(metrics):
         return False
     
     try:
-        from tools.api_db import save_financial_metrics
+        from src.tools.api_db import save_financial_metrics
         return save_financial_metrics(metrics)
     except Exception as e:
         print(f"{Fore.RED}Error saving financial metrics to database: {e}{Style.RESET_ALL}")
@@ -300,7 +586,7 @@ def upload_insider_trades(tickers, end_date, verbose=False):
         return False
         
     try:
-        from tools.api import get_insider_trades
+        from src.tools.api import get_insider_trades
         
         success = []
         failed = []
@@ -342,7 +628,7 @@ def save_insider_trades_to_db(ticker, trades):
         return False
     
     try:
-        from tools.api_db import save_insider_trades
+        from src.tools.api_db import save_insider_trades
         return save_insider_trades(trades)
     except Exception as e:
         print(f"{Fore.RED}Error saving insider trades to database: {e}{Style.RESET_ALL}")
@@ -354,7 +640,7 @@ def upload_line_items(tickers, end_date, verbose=False):
         return {'success': [], 'failed': []}
         
     try:
-        from tools.api import search_line_items
+        from src.tools.api import search_line_items
         
         if verbose:
             print(f"Loading line items for {len(tickers)} tickers...")
@@ -407,7 +693,7 @@ def save_line_items_to_db(ticker, line_items):
         return False
     
     try:
-        from tools.api_db import save_line_items
+        from src.tools.api_db import save_line_items
         return save_line_items(ticker, line_items)
     except Exception as e:
         print(f"{Fore.RED}Error saving line items to database: {e}{Style.RESET_ALL}")

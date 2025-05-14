@@ -8,6 +8,8 @@ class Price(BaseModel):
     low: float
     volume: int
     time: str
+    ticker: str
+    biz_date: str = None  # Optional, can be calculated from time if not provided
 
 
 class PriceResponse(BaseModel):

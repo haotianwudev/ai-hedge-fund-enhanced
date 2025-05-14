@@ -41,7 +41,7 @@ def get_price_polygon(ticker: str, start_date: str, end_date: str) -> pd.DataFra
     
     data = response.json()
     
-    if data.get('status') != 'OK' or 'results' not in data:
+    if data.get('status') not in ['OK', 'DELAYED'] or 'results' not in data:
         raise ValueError(f"API returned an error: {data}")
     
     if not data['results']:

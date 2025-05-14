@@ -112,7 +112,7 @@ def get_date_range(start_date, end_date):
     if not start_date:
         # Default to 3 months before end date
         end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-        start_dt = end_dt - timedelta(days=1825)
+        start_dt = end_dt - timedelta(days=450)
         start_date = start_dt.strftime("%Y-%m-%d")
     
     return start_date, end_date

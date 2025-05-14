@@ -191,9 +191,17 @@ def save_prices(ticker: str, prices: list[Price]) -> bool:
         insert_count = 0
         for price in prices:
             try:
-                # Extract date from time for biz_date
-                time_obj = datetime.datetime.fromisoformat(price.time.replace('Z', '+00:00'))
-                biz_date = time_obj.date()
+                # Use biz_date from the object if available, otherwise extract from time
+                if hasattr(price, 'biz_date') and price.biz_date:
+                    # Use the provided biz_date
+                    biz_date = price.biz_date
+                    if isinstance(biz_date, str):
+                        # Convert string to date object if needed
+                        biz_date = datetime.datetime.strptime(biz_date, '%Y-%m-%d').date()
+                else:
+                    # Extract date from time for biz_date (legacy method)
+                    time_obj = datetime.datetime.fromisoformat(price.time.replace('Z', '+00:00'))
+                    biz_date = time_obj.date()
                 
                 sql = """
                 INSERT INTO prices (ticker, time, biz_date, open, close, high, low, volume)
