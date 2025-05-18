@@ -63,7 +63,7 @@ class PriceService:
         df = pd.DataFrame([p.model_dump() for p in prices])
         
         # Format the dataframe
-        df["Date"] = pd.to_datetime(df["time"])
+        df["Date"] = pd.to_datetime(df["biz_date"])
         df.set_index("Date", inplace=True)
         
         # Ensure columns are numeric

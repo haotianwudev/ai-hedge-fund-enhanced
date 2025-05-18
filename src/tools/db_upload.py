@@ -196,7 +196,7 @@ def upload_prices(tickers, start_date, end_date, verbose=False, data_source='aut
                 print(f"Using waterfall logic for data source selection")
                 
                 # Check if ticker is "VIX" or "SPY"
-                if ticker in ["VIX", "SPY"]:
+                if ticker in ["VIX", "SPY", "VVIX"]:
                     selected_source = 'yfinance'
                     print(f"STRATEGY: Ticker is {ticker}, using Yahoo Finance as primary source")
                     if verbose:
@@ -206,7 +206,7 @@ def upload_prices(tickers, start_date, end_date, verbose=False, data_source='aut
                     
                     try:
                         # For VIX, use ^VIX ticker symbol with Yahoo Finance
-                        yf_ticker = f"^{ticker}" if ticker == "VIX" else ticker
+                        yf_ticker = f"^{ticker}" if ticker in ["VIX", "VVIX"] else ticker
                         print(f"API CALL: Yahoo Finance - Fetching {yf_ticker} from {start_date} to {end_date}")
                         result = upload_prices_yfinance(yf_ticker, start_date, end_date)
                         

@@ -163,12 +163,14 @@ def get_prices_db(ticker: str, start_date: str, end_date: str) -> list[Price] | 
             result['time'] = result['time'].isoformat()
             # Create a Price object
             prices.append(Price(**{
+                'ticker': result['ticker'], 
                 'open': float(result['open']),
                 'close': float(result['close']),
                 'high': float(result['high']),
                 'low': float(result['low']),
                 'volume': int(result['volume']),
-                'time': result['time']
+                'time': result['time'],
+                'biz_date': result['biz_date'].isoformat() if result['biz_date'] else None  
             }))
         
         return prices
