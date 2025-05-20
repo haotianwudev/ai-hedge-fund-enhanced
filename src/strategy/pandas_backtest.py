@@ -214,6 +214,24 @@ def backtest_option_strategy(model_probs, actual_crashes, spy_prices, vix_values
     strategy['strategy_drawdown'] = (strategy['cum_strategy_return'] - strategy['strategy_peak'])
     strategy['benchmark_drawdown'] = (strategy['cum_benchmark_return'] - strategy['benchmark_peak'])
     
+    # Calculate drawdown duration
+    strategy['strategy_drawdown_duration'] = 0
+    strategy['benchmark_drawdown_duration'] = 0
+    current_drawdown_duration = 0
+    current_benchmark_drawdown_duration = 0
+    
+    for i in range(1, len(strategy)):
+        if strategy.iloc[i]['strategy_drawdown'] < 0:
+            current_drawdown_duration += 1
+        else:
+            current_drawdown_duration = 0
+        if strategy.iloc[i]['benchmark_drawdown'] < 0:
+            current_benchmark_drawdown_duration += 1
+        else:
+            current_benchmark_drawdown_duration = 0
+            
+        strategy.iloc[i, strategy.columns.get_loc('strategy_drawdown_duration')] = current_drawdown_duration
+        strategy.iloc[i, strategy.columns.get_loc('benchmark_drawdown_duration')] = current_benchmark_drawdown_duration
     
     # Calculate performance metrics
     total_periods = len(strategy)
@@ -232,6 +250,14 @@ def backtest_option_strategy(model_probs, actual_crashes, spy_prices, vix_values
     strategy_max_drawdown = strategy['strategy_drawdown'].min()
     benchmark_max_drawdown = strategy['benchmark_drawdown'].min()
     
+    # Calculate average drawdown
+    strategy_avg_drawdown = strategy[strategy['strategy_drawdown'] < 0]['strategy_drawdown'].mean()
+    benchmark_avg_drawdown = strategy[strategy['benchmark_drawdown'] < 0]['benchmark_drawdown'].mean()
+    
+    # Calculate max drawdown duration
+    strategy_max_drawdown_duration = strategy['strategy_drawdown_duration'].max()
+    benchmark_max_drawdown_duration = strategy['benchmark_drawdown_duration'].max()
+    
     strategy_volatility = strategy['strategy_return'].std() * np.sqrt(252)  # Annualized
     benchmark_volatility = strategy['benchmark_return'].std() * np.sqrt(252)  # Annualized
     
@@ -241,18 +267,13 @@ def backtest_option_strategy(model_probs, actual_crashes, spy_prices, vix_values
     # Calculate option-specific metrics
     total_option_cost = strategy[~strategy['exit_type'].isnull()]['option_balance'].sum()
     
-    # Count profitable option trades
-    profitable_options = (strategy[~strategy['exit_type'].isnull()]['option_balance'] > 0).sum()
-    option_win_rate = profitable_options / option_entries if option_entries > 0 else 0
-    
     # Display metrics
     print(f"Option Strategy Performance (threshold = {threshold}):")
     print(f"Option positions opened: {option_entries}")
     print(f"Exit types - Expiry: {expiry_exits}, Threshold exits: {threshold_exits}, Still active: {still_active}")
-    # print(f"Days with active options: {option_periods} ({option_pct:.2%} of the time)")
-    print(f"Option win rate: {option_win_rate:.2%}")
     print(f"SPY Return: {benchmark_return:.2%}, Strategy Return: {strategy_return:.2%}")
     print(f"SPY Max Drawdown: {benchmark_max_drawdown:.2%}, Strategy Max Drawdown: {strategy_max_drawdown:.2%}")
+    print(f"SPY Max Drawdown Duration: {benchmark_max_drawdown_duration} days, Strategy Max Drawdown Duration: {strategy_max_drawdown_duration} days")
     print(f"SPY Volatility: {benchmark_volatility:.2%}, Strategy Volatility: {strategy_volatility:.2%}")
     print(f"SPY Sharpe: {benchmark_sharpe:.2f}, Strategy Sharpe: {strategy_sharpe:.2f}")
     print(f"Total option cost: {total_option_cost}")
@@ -267,7 +288,7 @@ def backtest_option_strategy(model_probs, actual_crashes, spy_prices, vix_values
     
     # Highlight periods when options were active
     option_periods = strategy[strategy['has_active_option']]
-    option_starts = strategy[strategy['option_start_idx'] == range(len(strategy))]
+    option_starts = strategy[strategy['option_start_idx'] >= 0]
     
     for i in range(len(option_starts)):
         start_idx = option_starts.iloc[i]['option_start_idx']
