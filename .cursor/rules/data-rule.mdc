@@ -1,0 +1,13 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+1. poetry: always use poetry to run
+2. scripts under tools folder are lib functions, no need to add main function
+3. when work with database tables, please cross check schema with SQL scripts in sql folder
+4. config and constant should be put in src/cfg folder
+5. no need to write regtest, unless user told you to do so
+6. try use __init__.py to include python path
+
+7. Jupyter: if work with jupyter notebook, please write code in a py file in the notebook way, i.e. no need to use function, use block of comments for markdown
