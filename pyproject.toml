@@ -37,6 +37,7 @@ xgboost = "^3.0.1"
 backtrader = "^1.9.78.123"
 scipy = "^1.15.3"
 pandas-market-calendars = "^5.1.0"
+shap = "^0.47.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"

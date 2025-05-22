@@ -13,6 +13,7 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 import xgboost as xgb
 import matplotlib.pyplot as plt
 import seaborn as sns
+import shap  # Add SHAP import
 
 def split_data(X: pd.DataFrame, y: pd.Series, train_ratio: float = 0.6, val_ratio: float = 0.2) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series]:
     """
@@ -123,7 +124,8 @@ def tune_hyperparameters(
     param_grid: Dict[str, Any] = None
 ) -> Tuple[Any, float, Dict[str, Any]]:
     """
-    Tune hyperparameters for the specified model type using time-series cross-validation.
+    Tune hyperparameters for the specified model type using time-series cross-validation
+    on combined training and validation sets.
     
     Args:
         X_train: Training features
@@ -142,50 +144,54 @@ def tune_hyperparameters(
     """
     print(f"\nTuning hyperparameters for {model_type} model...")
     
+    # Combine train and validation sets for parameter tuning
+    X_train_val = pd.concat([X_train, X_val])
+    y_train_val = pd.concat([y_train, y_val])
+    
     # Calculate class weight for imbalanced data
-    class_weight = sum(y_train==0)/sum(y_train==1)
+    class_weight = sum(y_train_val==0)/sum(y_train_val==1)
     
     # Define parameter grids for each model type
     if param_grid is None:
         param_grids = {
             'logistic': {
-                'C': [0.001, 0.01, 0.1, 1, 10, 100],
+                'C': [0.001, 0.01, 0.1],  # Reduced range to focus on stronger regularization
                 'class_weight': ['balanced', None],
                 'max_iter': [3000],
                 'solver': ['liblinear'],
-                'penalty': ['l1', 'l2']
+                'penalty': ['l2']  # Removed l1 since we have few features
             },
             'rf': {
-                'n_estimators': [100, 200, 300],
-                'max_depth': [3, 5, 7, 10],
-                'min_samples_split': [2, 5, 10],
-                'min_samples_leaf': [1, 2, 4],
-                'class_weight': ['balanced', 'balanced_subsample', None],
-                'max_features': ['sqrt', 'log2'],
+                'n_estimators': [20, 50],  # Reduced to be proportional to feature count
+                'max_depth': [3, 5],  # Reduced from 4 to 2 values, removed None
+                'min_samples_split': [2, 5],  # Reduced from 3 to 2 values
+                'min_samples_leaf': [1, 2],  # Reduced from 3 to 2 values
+                'class_weight': ['balanced', None],  # Removed balanced_subsample
+                'max_features': ['sqrt'],  # Removed log2 since sqrt is usually better
                 'bootstrap': [True],
-                'criterion': ['gini', 'entropy']
+                'criterion': ['gini']  # Removed entropy since gini is usually sufficient
             },
             'gb': {
-                'n_estimators': [100, 200, 300],
-                'learning_rate': [0.01, 0.1, 0.2],
-                'max_depth': [3, 5, 7],
-                'min_samples_split': [2, 5, 10],
-                'min_samples_leaf': [1, 2, 4],
+                'n_estimators': [20, 50],  # Reduced to be proportional to feature count
+                'learning_rate': [0.1, 0.2],  # Reduced from 3 to 2 values
+                'max_depth': [3, 5],  # Reduced from 3 to 2 values
+                'min_samples_split': [2, 5],  # Reduced from 3 to 2 values
+                'min_samples_leaf': [1, 2],  # Reduced from 3 to 2 values
                 'subsample': [0.8, 1.0],
-                'loss': ['deviance', 'exponential'],
-                'max_features': ['sqrt', 'log2'],
-                'criterion': ['friedman_mse', 'squared_error']
+                'loss': ['deviance'],  # Removed exponential
+                'max_features': ['sqrt'],  # Removed log2
+                'criterion': ['friedman_mse']  # Removed squared_error
             },
             'xgb': {
-                'n_estimators': [100, 200, 300],
-                'max_depth': [3, 5, 7],
-                'learning_rate': [0.01, 0.1, 0.2],
+                'n_estimators': [20, 50],  # Reduced to be proportional to feature count
+                'max_depth': [3, 5],  # Reduced from 3 to 2 values
+                'learning_rate': [0.1, 0.2],  # Reduced from 3 to 2 values
                 'subsample': [0.8, 1.0],
                 'colsample_bytree': [0.8, 1.0],
-                'min_child_weight': [1, 3, 5],
-                'gamma': [0, 0.1, 0.2],
-                'reg_alpha': [0, 0.1, 1],
-                'reg_lambda': [0.1, 1, 5],
+                'min_child_weight': [1, 3],  # Reduced from 3 to 2 values
+                'gamma': [0, 0.1],  # Reduced from 3 to 2 values
+                'reg_alpha': [0, 0.1],  # Reduced from 3 to 2 values
+                'reg_lambda': [0.1, 1],  # Reduced from 3 to 2 values
                 'scale_pos_weight': [1, class_weight]
             }
         }
@@ -221,20 +227,16 @@ def tune_hyperparameters(
         verbose=1
     )
     
-    # Fit grid search
-    grid_search.fit(X_train, y_train)
+    # Fit grid search on combined train+val data
+    grid_search.fit(X_train_val, y_train_val)
     
     # Get best model and parameters
     best_model = grid_search.best_estimator_
     best_params = grid_search.best_params_
     best_val_score = grid_search.best_score_
     
-    # Evaluate best model on validation set
-    val_score = roc_auc_score(y_val, best_model.predict_proba(X_val)[:, 1])
-    
     print(f"\nBest parameters: {best_params}")
     print(f"Best cross-validation score: {best_val_score:.4f}")
-    print(f"Validation set score: {val_score:.4f}")
     
     # Plot cross-validation results if requested
     if show_cv_plot:
@@ -260,7 +262,89 @@ def tune_hyperparameters(
         plt.show()
         plt.close()
     
-    return best_model, val_score, best_params
+    return best_model, best_val_score, best_params
+
+def analyze_shap_values(
+    model: Any,
+    X: pd.DataFrame,
+    model_type: str,
+    save_plots: bool = False,
+    plot_dir: str = "logs"
+) -> Dict[str, Any]:
+    """
+    Analyze and visualize SHAP values for model explanation.
+    
+    Args:
+        model: Trained model
+        X: Feature DataFrame
+        model_type: Type of model ('logistic', 'rf', 'gb', 'xgb')
+        save_plots: Whether to save plots to disk
+        plot_dir: Directory to save plots if save_plots is True
+        
+    Returns:
+        Dict containing SHAP values and feature importance
+    """
+    print(f"\nAnalyzing SHAP values for {model_type} model...")
+    
+    # Create SHAP explainer based on model type
+    if model_type == 'logistic':
+        explainer = shap.LinearExplainer(model, X)
+    elif model_type in ['rf', 'gb', 'xgb']:
+        explainer = shap.TreeExplainer(model)
+    else:
+        raise ValueError(f"Unsupported model type for SHAP analysis: {model_type}")
+    
+    # Calculate SHAP values
+    shap_values = explainer.shap_values(X)
+    
+    # For binary classification, use values for positive class
+    if isinstance(shap_values, list):
+        shap_values = shap_values[1]
+    
+    # Calculate mean absolute SHAP values for feature importance
+    mean_shap_values = np.abs(shap_values).mean(axis=0)
+    feature_importance = pd.DataFrame({
+        'Feature': X.columns,
+        'Importance': mean_shap_values
+    }).sort_values('Importance', ascending=False)
+    
+    # Plot summary plot
+    plt.figure(figsize=(10, 6))
+    shap.summary_plot(
+        shap_values, 
+        X,
+        plot_type="bar",
+        show=False
+    )
+    plt.title(f"{model_type.upper()} - Feature Importance (SHAP)")
+    plt.tight_layout()
+    if save_plots:
+        plt.savefig(f"{plot_dir}/{model_type}_shap_summary.png")
+    plt.show()
+    plt.close()
+    
+    # Plot detailed SHAP values
+    plt.figure(figsize=(10, 6))
+    shap.summary_plot(
+        shap_values, 
+        X,
+        show=False
+    )
+    plt.title(f"{model_type.upper()} - SHAP Value Distribution")
+    plt.tight_layout()
+    if save_plots:
+        plt.savefig(f"{plot_dir}/{model_type}_shap_distribution.png")
+    plt.show()
+    plt.close()
+    
+    # Print top features by importance
+    print("\nTop 10 Most Important Features:")
+    print(feature_importance.head(10).to_string(index=False))
+    
+    return {
+        'shap_values': shap_values,
+        'feature_importance': feature_importance
+    }
 
 def train_and_evaluate_model(
     model: Any,
@@ -416,6 +500,16 @@ def train_and_evaluate_model(
         plt.show()
         plt.close()
     
+    # Add SHAP analysis
+    model_type = model_name.lower().split()[0]  # Extract model type from name
+    shap_analysis = analyze_shap_values(
+        model, 
+        X_train,  # Use training data for SHAP analysis
+        model_type,
+        save_plots,
+        plot_dir
+    )
+    
     # Create overfitting report
     overfitting_report = {
         'train_accuracy': train_accuracy,
@@ -427,7 +521,8 @@ def train_and_evaluate_model(
         'train_val_acc_diff': train_val_acc_diff,
         'train_test_acc_diff': train_test_acc_diff,
         'train_val_auc_diff': train_val_auc_diff,
-        'train_test_auc_diff': train_test_auc_diff
+        'train_test_auc_diff': train_test_auc_diff,
+        'shap_analysis': shap_analysis
     }
     
     return model, y_test_prob, overfitting_report
@@ -459,79 +554,83 @@ def train_and_evaluate_all_models(
         Dict[str, Tuple[Any, np.ndarray, Dict[str, float], Dict[str, Any]]]: 
             Dictionary mapping model names to (model, test_probabilities, overfitting_report, best_params)
     """
+    # Calculate class weight for imbalanced data
+    class_weight = sum(y_train==0)/sum(y_train==1)
+    
     # Define parameter grids for each model type
     if fast_mode:
         param_grids = {
             'logistic': {
-                'C': [0.1, 1, 10],
+                'C': [0.01],  # Reduced to allow more regularization
                 'class_weight': ['balanced'],
                 'max_iter': [3000],
                 'solver': ['liblinear'],
                 'penalty': ['l2']
             },
             'rf': {
-                'n_estimators': [100, 200],
-                'max_depth': [5, 10],
-                'min_samples_split': [2, 5],
+                'n_estimators': [20],  # Reduced to number of features
+                'max_depth': [3],  # Single value
+                'min_samples_split': [2],
                 'class_weight': ['balanced'],
                 'max_features': ['sqrt']
             },
             'gb': {
-                'n_estimators': [100, 200],
-                'learning_rate': [0.1],
-                'max_depth': [5],
+                'n_estimators': [20],  # Reduced to number of features
+                'learning_rate': [0.1],  # Single value
+                'max_depth': [3],  # Single value
                 'subsample': [0.8],
                 'max_features': ['sqrt']
             },
             'xgb': {
-                'n_estimators': [100, 200],
-                'max_depth': [5],
-                'learning_rate': [0.1],
+                'n_estimators': [20],  # Reduced to number of features
+                'max_depth': [3],  # Single value
+                'learning_rate': [0.1],  # Single value
                 'subsample': [0.8],
-                'colsample_bytree': [0.8]
+                'colsample_bytree': [0.8],
+                'scale_pos_weight': [1, class_weight]
             }
         }
         n_splits = 2  # Fewer CV splits for faster results
     else:
         param_grids = {
             'logistic': {
-                'C': [0.001, 0.01, 0.1, 1, 10, 100],
+                'C': [0.001, 0.01, 0.1],  # Reduced range to focus on stronger regularization
                 'class_weight': ['balanced', None],
                 'max_iter': [3000],
                 'solver': ['liblinear'],
-                'penalty': ['l1', 'l2']
+                'penalty': ['l2']  # Removed l1 since we have few features
             },
             'rf': {
-                'n_estimators': [100, 200, 300],
-                'max_depth': [3, 5, 7, 10],
-                'min_samples_split': [2, 5, 10],
-                'min_samples_leaf': [1, 2, 4],
-                'class_weight': ['balanced', 'balanced_subsample', None],
-                'max_features': ['sqrt', 'log2'],
+                'n_estimators': [20, 50],  # Reduced to be proportional to feature count
+                'max_depth': [3, 5],  # Reduced from 4 to 2 values, removed None
+                'min_samples_split': [2, 5],  # Reduced from 3 to 2 values
+                'min_samples_leaf': [1, 2],  # Reduced from 3 to 2 values
+                'class_weight': ['balanced', None],  # Removed balanced_subsample
+                'max_features': ['sqrt'],  # Removed log2 since sqrt is usually better
                 'bootstrap': [True],
-                'criterion': ['gini', 'entropy']
+                'criterion': ['gini']  # Removed entropy since gini is usually sufficient
             },
             'gb': {
-                'n_estimators': [100, 200, 300],
-                'learning_rate': [0.01, 0.1, 0.2],
-                'max_depth': [3, 5, 7],
-                'min_samples_split': [2, 5, 10],
-                'min_samples_leaf': [1, 2, 4],
+                'n_estimators': [20, 50],  # Reduced to be proportional to feature count
+                'learning_rate': [0.1, 0.2],  # Reduced from 3 to 2 values
+                'max_depth': [3, 5],  # Reduced from 3 to 2 values
+                'min_samples_split': [2, 5],  # Reduced from 3 to 2 values
+                'min_samples_leaf': [1, 2],  # Reduced from 3 to 2 values
                 'subsample': [0.8, 1.0],
-                'loss': ['deviance', 'exponential'],
-                'max_features': ['sqrt', 'log2'],
-                'criterion': ['friedman_mse', 'squared_error']
+                'loss': ['deviance'],  # Removed exponential
+                'max_features': ['sqrt'],  # Removed log2
+                'criterion': ['friedman_mse']  # Removed squared_error
             },
             'xgb': {
-                'n_estimators': [100, 200, 300],
-                'max_depth': [3, 5, 7],
-                'learning_rate': [0.01, 0.1, 0.2],
+                'n_estimators': [20, 50],  # Reduced to be proportional to feature count
+                'max_depth': [3, 5],  # Reduced from 3 to 2 values
+                'learning_rate': [0.1, 0.2],  # Reduced from 3 to 2 values
                 'subsample': [0.8, 1.0],
                 'colsample_bytree': [0.8, 1.0],
-                'min_child_weight': [1, 3, 5],
-                'gamma': [0, 0.1, 0.2],
-                'reg_alpha': [0, 0.1, 1],
-                'reg_lambda': [0.1, 1, 5],
+                'min_child_weight': [1, 3],  # Reduced from 3 to 2 values
+                'gamma': [0, 0.1],  # Reduced from 3 to 2 values
+                'reg_alpha': [0, 0.1],  # Reduced from 3 to 2 values
+                'reg_lambda': [0.1, 1],  # Reduced from 3 to 2 values
                 'scale_pos_weight': [1, class_weight]
             }
         }
@@ -561,3 +660,68 @@ def train_and_evaluate_all_models(
         results[model_type] = (model, probs, overfitting_report, params)
     
     return results
+
+def generate_model_explanation_prompt(
+    date: str,
+    features: pd.Series,
+    prediction_prob: float,
+    shap_values: np.ndarray,
+    feature_names: List[str],
+    model_type: str = 'xgb',
+    top_n_features: int = 3
+) -> str:
+    """
+    Generate a prompt to explain model prediction for a specific date.
+    
+    Args:
+        date: The date of the prediction
+        features: Feature values for that date
+        prediction_prob: Model's predicted probability
+        shap_values: SHAP values for that date
+        feature_names: List of feature names
+        model_type: Type of model used
+        top_n_features: Number of top features to include in explanation
+    
+    Returns:
+        str: Prompt text for LLM
+    """
+    # Get top N features by absolute SHAP value
+    feature_importance = pd.DataFrame({
+        'Feature': feature_names,
+        'Value': features.values,
+        'SHAP': shap_values
+    })
+    feature_importance['Abs_SHAP'] = np.abs(feature_importance['SHAP'])
+    top_features = feature_importance.nlargest(top_n_features, 'Abs_SHAP')
+    
+    # Format the prompt
+    prompt = f"""Context:
+We are analyzing a market crash prediction system that uses machine learning to predict potential market crashes. 
+
+The model predicts the probability of a market crash occurring in the next 10 days, where a crash is defined as a significant market decline (e.g., >10% drop in SPY).
+
+Please explain the {model_type.upper()} model's prediction for {date}:
+
+Prediction Details:
+- Date: {date}
+- Predicted Probability: {prediction_prob:.3f}
+- Model Type: {model_type.upper()}
+
+Top {top_n_features} Influential Features:
+"""
+    
+    # Add each top feature's details
+    for _, row in top_features.iterrows():
+        prompt += f"- {row['Feature']}: Value = {row['Value']:.3f}, SHAP Impact = {row['SHAP']:.3f}\n"
+    
+    prompt += """
+Please explain:
+1. Why did the model predict this probability? Consider the market conditions and feature values.
+2. How did each of these top features influence the prediction? Explain the relationship between each feature's value and its SHAP impact.
+3. What does this prediction mean in the context of market crash prediction? Is this a high or low probability compared to typical predictions?
+4. Does investor need to consider a hedge via put options?
+
+Please provide a clear, concise explanation that would be understandable to someone with basic knowledge of financial markets. Focus on explaining the model's reasoning in terms of market conditions and risk factors.
+"""
+    
+    return prompt
