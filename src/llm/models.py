@@ -219,4 +219,10 @@ def get_model(model_name: str, model_provider: ModelProvider) -> ChatOpenAI | Ch
         return ChatOllama(
             model=model_name, 
             base_url=base_url,
+            temperature=0.1,  # Lower temperature for more deterministic output
+            top_p=0.1,  # Lower top_p for more focused sampling
+            top_k=10,  # Lower top_k for more focused sampling
+            num_ctx=4096,  # Context window
+            repeat_penalty=1.1,  # Slight penalty for repetition
+            stop=["</s>", "Human:", "Assistant:"]  # Stop tokens
         )

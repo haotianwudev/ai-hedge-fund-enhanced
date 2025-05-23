@@ -51,8 +51,8 @@ load_dotenv()
 init(autoreset=True)
 
 # Hardcoded parameters
-MODEL_NAME = "deepseek-chat"
-MODEL_PROVIDER = ModelProvider.DEEPSEEK.value
+MODEL_NAME = "qwen3:8b"
+MODEL_PROVIDER = ModelProvider.OLLAMA.value
 INITIAL_CASH = 100000.0
 MARGIN_REQUIREMENT = 0.0
 SHOW_AGENT_GRAPH = True
@@ -75,8 +75,8 @@ def run_hedge_fund(
     portfolio: dict,
     show_reasoning: bool = False,
     selected_analysts: list[str] = None,
-    model_name: str = "deepseek-chat",
-    model_provider: str = "DeepSeek",
+    model_name: str = "qwen3:8b",
+    model_provider: str = ModelProvider.OLLAMA.value,
 ):
     """Run hedge fund analysis and save results to database."""
     progress.start()
@@ -190,7 +190,7 @@ if __name__ == "__main__":
     selected_analysts = AGENT_LIST  # Use only the hardcoded list by default
     
     print(f"\nUsing analysts: {', '.join(Fore.GREEN + ANALYST_CONFIG[choice]['display_name'] + Style.RESET_ALL for choice in selected_analysts)}")
-    print(f"\nUsing {Fore.CYAN}DeepSeek{Style.RESET_ALL} model: {Fore.GREEN + Style.BRIGHT}deepseek-v3{Style.RESET_ALL}\n")
+    print(f"\nUsing {Fore.CYAN}{ModelProvider(MODEL_PROVIDER).name}{Style.RESET_ALL} model: {Fore.GREEN + Style.BRIGHT}{MODEL_NAME}{Style.RESET_ALL}\n")
 
     end_date = datetime.now().strftime("%Y-%m-%d")
     start_date = (datetime.strptime(end_date, "%Y-%m-%d") - relativedelta(months=12)).strftime("%Y-%m-%d")

@@ -24,8 +24,8 @@ def main():
             "analyst_signals": {}
         },
         metadata={
-            "model_name": "qwen3:8b",  # Ollama model name
-            "model_provider": ModelProvider.OLLAMA.value,
+            "model_name": "deepseek-chat",
+            "model_provider": ModelProvider.DEEPSEEK.value,
             "show_reasoning": True
         }
     )
@@ -38,11 +38,6 @@ def main():
         for ticker in tickers:
             analysis = result["data"]["analyst_signals"]["sophie_agent"][ticker]
             
-            # Skip database upload if confidence is 0
-            if analysis["confidence"] == 0:
-                print(f"\nSkipping database upload for {ticker} due to 0 confidence")
-                continue
-                
             # Save to database
             save_sophie_analysis(
                 ticker=ticker,

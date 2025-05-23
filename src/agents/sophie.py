@@ -58,33 +58,6 @@ class SophieSignal(BaseModel):
     bearish_factors: list[str] = []
     risks: list[str] = []
 
-    @classmethod
-    def from_llm_output(cls, data: dict) -> "SophieSignal":
-        """Create SophieSignal from LLM output, overriding signal based on score"""
-        # Override signal based on score
-        score = data["overall_score"]
-        if score <= 20:
-            signal = "bearish"
-        elif score <= 40:
-            signal = "bearish"
-        elif score <= 60:
-            signal = "neutral"
-        elif score <= 80:
-            signal = "bullish"
-        else:
-            signal = "bullish"
-            
-        return cls(
-            signal=signal,  # Use score-based signal instead of LLM's signal
-            confidence=data["confidence"],
-            overall_score=score,
-            reasoning=data["reasoning"],
-            time_horizon_analysis=data["time_horizon_analysis"],
-            bullish_factors=data["bullish_factors"],
-            bearish_factors=data["bearish_factors"],
-            risks=data["risks"]
-        )
-
 def sophie_agent(state: AgentState):
     """Analyzes stocks using combined valuation, technical, sentiment and fundamental analysis."""
     data = state["data"]
@@ -333,25 +306,59 @@ def save_prompt_to_log(ticker: str):
     filename = f"logs/{ticker}_analysis_{timestamp}.txt"
     
     # Create the full prompt template with all components
-    template = f"""### Investment Analysis Prompt Template
+    template = """### Investment Analysis Prompt Template
 
 **System Instructions:**
-{SOPHIE_SYSTEM_PROMPT}
+You are Sophie, an AI investment analyst that combines multiple analysis techniques:
+- Valuation analysis (DCF, ev_ebitda, owner_earnings, residual_income)
+- Technical analysis (trend, momentum, volatility)
+- Fundamental analysis (financial statements)
+- Sentiment analysis (news, social media)
+
+**Analysis Requirements:**
+1. Provide an overall score (1-100) where:
+   - 1-20 = Strong Sell
+   - 21-40 = Sell 
+   - 41-60 = Hold
+   - 61-80 = Buy
+   - 81-100 = Strong Buy
+2. Confidence level (0-100%) in your assessment
+3. Time horizon specific insights (short/medium/long term)
+4. Key bullish factors
+5. Key bearish factors
+6. Potential risks to the analysis
+
+**Required Output Format:**
+```json
+{{
+  "confidence": 0-100,
+  "overall_score": 1-100,
+  "reasoning": "Analysis rationale",
+  "time_horizon_analysis": {{
+    "short_term": "1-3 month outlook",
+    "medium_term": "3-12 month outlook",
+    "long_term": "1+ year outlook"
+  }},
+  "bullish_factors": ["list", "of", "factors"],
+  "bearish_factors": ["list", "of", "factors"],
+  "risks": ["potential", "risks", "to", "analysis"]
+}}
+```
 
 **Stock Analysis Request:**
 Analyze {ticker} based on the following data:
 
 === Valuation Analysis ===
-{{valuation_data}}
+{valuation_data}
 
 === Technical Analysis ===  
-{{technical_data}}
+{technical_data}
 
 === Sentiment Analysis ===
-{{sentiment_data}}
+{sentiment_data}
 
 === Fundamental Analysis ===
-{{fundamentals_data}}
+{fundamentals_data}
 
 === Additional Notes ===
 - Consider sector/industry trends
@@ -426,23 +433,14 @@ def generate_llm_output_direct(
         if not prompt:
             raise ValueError("Failed to generate prompt")
 
-        # Get raw LLM output
-        raw_output = call_llm(
+        return call_llm(
             prompt=prompt,
             model_name=model_name,
             model_provider=model_provider,
-            pydantic_model=None,  # Don't use pydantic validation for raw output
+            pydantic_model=SophieSignal,
             agent_name="sophie_agent",
-            default_factory=None
+            default_factory=create_default_sophie_signal
         )
-        
-        # Convert to dict if it's a string
-        if isinstance(raw_output, str):
-            raw_output = json.loads(raw_output)
-            
-        # Create SophieSignal using the new from_llm_output method
-        return SophieSignal.from_llm_output(raw_output)
-        
     except Exception as e:
         print(f"Error in direct generation: {e}")
         return create_default_sophie_signal()
@@ -478,23 +476,27 @@ def generate_llm_output(
                 "analysis_data": json.dumps(analysis_data[ticker], indent=2)
             })
             
-            # Get raw LLM output
-            raw_output = call_llm(
+            return call_llm(
                 prompt=prompt,
                 model_name=model_name,
                 model_provider=model_provider,
-                pydantic_model=None,  # Don't use pydantic validation for raw output
+                pydantic_model=SophieSignal,
                 agent_name="sophie_agent",
-                default_factory=None
+                default_factory=lambda: SophieSignal(
+                    signal="neutral",
+                    confidence=0.0,
+                    overall_score=50,
+                    reasoning="Error in analysis, defaulting to neutral",
+                    time_horizon_analysis={
+                        "short_term": "Unknown",
+                        "medium_term": "Unknown", 
+                        "long_term": "Unknown"
+                    },
+                    bullish_factors=[],
+                    bearish_factors=[],
+                    risks=[]
+                )
             )
-            
-            # Convert to dict if it's a string
-            if isinstance(raw_output, str):
-                raw_output = json.loads(raw_output)
-                
-            # Create SophieSignal using the new from_llm_output method
-            return SophieSignal.from_llm_output(raw_output)
-            
         except Exception as e:
             print(f"Log-based generation failed: {e}")
             # Final fallback to default neutral signal
