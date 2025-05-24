@@ -52,6 +52,14 @@ def main():
     ]
     run_command(line_items_cmd, logger)
 
+    # logger.info("Processing company_news_alphavantage for all tickers")
+    # company_news_alphavantage_cmd = [
+    #     "poetry", "run", "python", "src/upload/raw_data_table_uploader.py",
+    #     "--tickers", ",".join(tickers),
+    #     "--table", "company_news_alphavantage"
+    # ]
+    # run_command(company_news_alphavantage_cmd, logger)
+
     # Then run other jobs one ticker at a time
     for ticker in tickers:
         logger.info(f"Starting processing for ticker: {ticker}")

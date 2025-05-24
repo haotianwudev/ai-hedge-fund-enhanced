@@ -84,9 +84,11 @@ def load_financial_data(tickers, start_date, end_date, verbose=False, table_name
                 return results
                 
             print(f"Processing {table_name} for {len(tickers)} tickers...")
+            # Only pass params that are not None
+            param_values = {param: locals().get(param) for param in config['params'] if locals().get(param) is not None}
             batch_result = config['upload_function'](
                 tickers,
-                **{param: locals()[param] for param in config['params']}
+                **param_values
             )
             
             if batch_result:

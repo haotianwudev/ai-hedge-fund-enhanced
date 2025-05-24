@@ -48,6 +48,7 @@ def main():
         ["poetry", "run", "python", "src/upload/raw_data_table_uploader.py", "--tickers", tickers_str, "--table", "company_facts"],
         ["poetry", "run", "python", "src/upload/raw_data_table_uploader.py", "--tickers", tickers_str, "--table", "prices"],
         ["poetry", "run", "python", "src/upload/raw_data_table_uploader.py", "--tickers", tickers_str, "--table", "company_news"],
+        #["poetry", "run", "python", "src/upload/raw_data_table_uploader.py", "--tickers", tickers_str, "--table", "company_news_alphavantage"],
         ["poetry", "run", "python", "src/upload/raw_data_table_uploader.py", "--tickers", tickers_str, "--table", "financial_metrics"],
         ["poetry", "run", "python", "src/upload/raw_data_table_uploader.py", "--tickers", tickers_str, "--table", "insider_trades"],
         ["poetry", "run", "python", "src/upload/raw_data_table_uploader.py", "--tickers", tickers_str, "--table", "line_items"],

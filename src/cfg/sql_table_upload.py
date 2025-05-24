@@ -12,6 +12,7 @@ from src.tools.db_upload import (
     upload_company_facts,
     upload_prices,
     upload_company_news,
+    upload_company_news_alphavantage,
     upload_financial_metrics,
     upload_insider_trades,
     upload_line_items,
@@ -37,6 +38,11 @@ TABLE_UPLOAD_CONFIG = {
         'upload_function': upload_company_news,
         'sql_table_name': 'company_news',
         'params': ['end_date']
+    },
+    'company_news_alphavantage': {
+        'upload_function': upload_company_news_alphavantage,
+        'sql_table_name': 'company_news_alphavantage',
+        'params': ['time_from', 'time_to', 'limit']
     },
     'financial_metrics': {
         'upload_function': upload_financial_metrics,

@@ -1097,24 +1097,41 @@ def upload_company_news_alphavantage(tickers, time_from=None, time_to=None, limi
     """
     Fetch and upload Alpha Vantage news sentiment for a list of tickers to the company_news_alphavantage table.
     Ensures no duplicate news per (ticker, url) using ON CONFLICT.
-    Returns a dict with ticker: True/False for upload success.
+    Returns a dict with 'success' and 'failed' keys for upload status.
     """
+    import pprint
     if not tickers:
-        return {}
+        print("[LOG] No tickers provided.")
+        return {'success': [], 'failed': []}
     
-    results = {}
-    news_data = get_news_sentiment_multi(tickers, time_from, time_to, limit)
+    # Map GOOGL to GOOG for API call, but keep a reverse map for result remapping
+    api_tickers = []
+    ticker_map = {}
+    for t in tickers:
+        if t == 'GOOGL':
+            api_tickers.append('GOOG')
+            ticker_map['GOOG'] = 'GOOGL'
+        else:
+            api_tickers.append(t)
+            ticker_map[t] = t
+    print(f"[LOG] Fetching news sentiment for tickers: {api_tickers} (from {time_from} to {time_to}, limit={limit})")
+    news_data = get_news_sentiment_multi(api_tickers, time_from, time_to, limit)
+    print(f"[LOG] News data: {len(news_data)}")
     all_news = []
-    for ticker, data in news_data.items():
+    results = {}
+    for api_ticker, data in news_data.items():
+        orig_ticker = ticker_map.get(api_ticker, api_ticker)
+        print(f"[LOG] Ticker: {orig_ticker} (API: {api_ticker}) - API response keys: {list(data.keys()) if data else data}")
         if not data or 'feed' not in data or not data['feed']:
-            results[ticker] = False
+            print(f"[LOG] No news feed found for {orig_ticker}. Data: {pprint.pformat(data)}")
+            results[orig_ticker] = False
             continue
+        print(f"[LOG] {orig_ticker}: {len(data['feed'])} news items found.")
         for item in data['feed']:
             ticker_sentiments = item.get('ticker_sentiment', [])
             if not ticker_sentiments:
-                # If no ticker_sentiment, still add a row for this ticker
                 all_news.append({
-                    'ticker': ticker,
+                    'ticker': orig_ticker,
                     'title': item.get('title', ''),
                     'url': item.get('url', ''),
                     'time_published': _format_time_db(item.get('time_published', '')),
@@ -1130,9 +1147,10 @@ def upload_company_news_alphavantage(tickers, time_from=None, time_to=None, limi
                 })
             else:
                 for ticker_sent in ticker_sentiments:
-                    if ticker_sent.get('ticker') == ticker:
+                    # Always map back to orig_ticker for DB
+                    if ticker_sent.get('ticker') == api_ticker:
                         all_news.append({
-                            'ticker': ticker_sent['ticker'],
+                            'ticker': orig_ticker,
                             'title': item.get('title', ''),
                             'url': item.get('url', ''),
                             'time_published': _format_time_db(item.get('time_published', '')),
@@ -1146,11 +1164,18 @@ def upload_company_news_alphavantage(tickers, time_from=None, time_to=None, limi
                             'ticker_relevance_score': float(ticker_sent.get('relevance_score', '0')),
                             'sentiment': ticker_sent.get('ticker_sentiment_label', ''),
                         })
-        results[ticker] = True
+        results[orig_ticker] = True
     if all_news:
-        # Use the original DB upload logic for all news
-        _upload_company_news_alphavantage_rows(all_news)
-    return results
+        print(f"[LOG] Uploading {len(all_news)} news items to DB...")
+        upload_result = _upload_company_news_alphavantage_rows(all_news)
+        print(f"[LOG] DB upload result: {upload_result}")
+    else:
+        print("[LOG] No news to upload to DB.")
+    # Return in the expected format for batch upload
+    return {
+        'success': [ticker for ticker, ok in results.items() if ok],
+        'failed': [ticker for ticker, ok in results.items() if not ok],
+    }
 
 def _format_time_db(time_str):
     """Convert API time format (YYYYMMDDTHHMMSS or YYYYMMDDTHHMM) to DB timestamp string or original string if parsing fails."""
