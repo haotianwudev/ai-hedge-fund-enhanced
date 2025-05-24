@@ -55,3 +55,6 @@ Thumbs.db
 
 # PDF files
 *.pdf
+
+# Node.js
+node_modules/

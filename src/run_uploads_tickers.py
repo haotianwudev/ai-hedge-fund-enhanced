@@ -50,7 +50,7 @@ def main():
         "--tickers", ",".join(tickers),
         "--table", "line_items"
     ]
-    #run_command(line_items_cmd, logger)
+    run_command(line_items_cmd, logger)
 
     # Then run other jobs one ticker at a time
     for ticker in tickers:
@@ -60,8 +60,8 @@ def main():
             ["poetry", "run", "python", "src/upload/raw_data_table_uploader.py", "--tickers", ticker, "--table", "company_facts"],
             ["poetry", "run", "python", "src/upload/raw_data_table_uploader.py", "--tickers", ticker, "--table", "prices"],
             ["poetry", "run", "python", "src/upload/raw_data_table_uploader.py", "--tickers", ticker, "--table", "company_news"],
-            #["poetry", "run", "python", "src/upload/raw_data_table_uploader.py", "--tickers", ticker, "--table", "financial_metrics"],
-            #["poetry", "run", "python", "src/upload/raw_data_table_uploader.py", "--tickers", ticker, "--table", "insider_trades"],
+            ["poetry", "run", "python", "src/upload/raw_data_table_uploader.py", "--tickers", ticker, "--table", "financial_metrics"],
+            ["poetry", "run", "python", "src/upload/raw_data_table_uploader.py", "--tickers", ticker, "--table", "insider_trades"],
             ["poetry", "run", "python", "src/upload/analysis_table_uploader.py", "--tickers", ticker],
             ["poetry", "run", "python", "src/upload/sophie_analysis_table_uploader.py", "--tickers", ticker]
         ]
