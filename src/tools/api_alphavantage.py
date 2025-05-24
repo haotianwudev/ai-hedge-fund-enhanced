@@ -21,9 +21,9 @@ def get_news_sentiment(ticker: str, time_from: Optional[str] = None,
     Returns:
         Dictionary containing news sentiment data or None if request fails
     """
-    api_key = os.getenv('ALPHA_VANTAGE_API_KEY')
+    api_key = os.getenv('ALPHA_VANTAGE_API_KEY_NEWS')
     if not api_key:
-        logger.error("ALPHA_VANTAGE_API_KEY environment variable not set")
+        logger.error("ALPHA_VANTAGE_API_KEY_NEWS environment variable not set")
         return None
 
     url = f"https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers={ticker}&limit={limit}&apikey={api_key}"
@@ -173,16 +173,53 @@ def save_prices_to_csv(data: Dict, ticker: str):
                     'volume': prices['5. volume']
                 })
 
-if __name__ == "__main__":
-    ticker = "AAPL"
-    data = get_daily_prices(ticker)
-    if data:
-        save_prices_to_csv(data, ticker)
-        logger.info(f"Saved price data for {ticker} to CSV in logs directory")
+def get_news_sentiment_multi(tickers: list[str], time_from: Optional[str] = None, time_to: Optional[str] = None, limit: int = 1000) -> dict:
+    """
+    Fetch news sentiment data for a list of tickers from Alpha Vantage API.
+    Returns a dict mapping ticker to its news sentiment data (or None if failed).
+    """
+    results = {}
+    if not tickers:
+        return results
+    
+    # Alpha Vantage supports comma-separated tickers, but may limit results per call
+    api_key = os.getenv('ALPHA_VANTAGE_API_KEY_NEWS')
+    if not api_key:
+        logger.error("ALPHA_VANTAGE_API_KEY_NEWS environment variable not set")
+        return {t: None for t in tickers}
 
-    # Process first ticker for sentiment
-    logger.info(f"Fetching news sentiment for {ticker}")
-    data = get_news_sentiment(ticker)
-    if data:
-        save_news_to_csv(data, ticker)
-        logger.info(f"Saved sentiment data for {ticker} to CSV in logs directory")
+    # Alpha Vantage allows up to 100 tickers per call, but limit to 5-10 for safety
+    batch_size = 5
+    for i in range(0, len(tickers), batch_size):
+        batch = tickers[i:i+batch_size]
+        tickers_str = ",".join(batch)
+        url = f"https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers={tickers_str}&limit={limit}&apikey={api_key}"
+        if time_from:
+            url += f"&time_from={time_from}"
+        if time_to:
+            url += f"&time_to={time_to}"
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            data = response.json()
+
+            # Alpha Vantage returns all news in one 'feed', so split by ticker
+            if data and 'feed' in data:
+                for ticker in batch:
+                    # Filter feed for this ticker
+                    ticker_feed = []
+                    for item in data['feed']:
+                        for ts in item.get('ticker_sentiment', []):
+                            if ts.get('ticker') == ticker:
+                                ticker_feed.append(item)
+                                break
+                    results[ticker] = {'feed': ticker_feed}
+            else:
+                for ticker in batch:
+                    results[ticker] = None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch news sentiment for {batch}: {str(e)}")
+            for ticker in batch:
+                results[ticker] = None
+    return results
+

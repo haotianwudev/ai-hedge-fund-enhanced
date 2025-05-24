@@ -12,6 +12,7 @@ from psycopg2.extras import execute_values
 from colorama import Fore, Style
 from datetime import datetime
 from src.cfg.line_items_list import LINE_ITEMS
+from src.tools.api_alphavantage import get_news_sentiment_multi
 
 def save_to_db(data, upload_func, table_name=None, verbose=False):
     """Generic function to save data to database with standardized logging"""
@@ -1091,6 +1092,134 @@ def upload_technical_result(technical_data: dict, biz_date: str):
     finally:
         cursor.close()
         conn.close()
+
+def upload_company_news_alphavantage(tickers, time_from=None, time_to=None, limit=1000):
+    """
+    Fetch and upload Alpha Vantage news sentiment for a list of tickers to the company_news_alphavantage table.
+    Ensures no duplicate news per (ticker, url) using ON CONFLICT.
+    Returns a dict with ticker: True/False for upload success.
+    """
+    if not tickers:
+        return {}
+    
+    results = {}
+    news_data = get_news_sentiment_multi(tickers, time_from, time_to, limit)
+    all_news = []
+    for ticker, data in news_data.items():
+        if not data or 'feed' not in data or not data['feed']:
+            results[ticker] = False
+            continue
+        for item in data['feed']:
+            ticker_sentiments = item.get('ticker_sentiment', [])
+            if not ticker_sentiments:
+                # If no ticker_sentiment, still add a row for this ticker
+                all_news.append({
+                    'ticker': ticker,
+                    'title': item.get('title', ''),
+                    'url': item.get('url', ''),
+                    'time_published': _format_time_db(item.get('time_published', '')),
+                    'date': _format_date_db(item.get('time_published', '')),
+                    'source': item.get('source', ''),
+                    'author': "; ".join(item.get('authors', [])),
+                    'summary': item.get('summary', ''),
+                    'overall_sentiment_score': item.get('overall_sentiment_score', 0),
+                    'overall_sentiment_label': item.get('overall_sentiment_label', ''),
+                    'ticker_sentiment_score': 0,
+                    'ticker_relevance_score': 0,
+                    'sentiment': '',
+                })
+            else:
+                for ticker_sent in ticker_sentiments:
+                    if ticker_sent.get('ticker') == ticker:
+                        all_news.append({
+                            'ticker': ticker_sent['ticker'],
+                            'title': item.get('title', ''),
+                            'url': item.get('url', ''),
+                            'time_published': _format_time_db(item.get('time_published', '')),
+                            'date': _format_date_db(item.get('time_published', '')),
+                            'source': item.get('source', ''),
+                            'author': "; ".join(item.get('authors', [])),
+                            'summary': item.get('summary', ''),
+                            'overall_sentiment_score': float(item.get('overall_sentiment_score', 0)),
+                            'overall_sentiment_label': item.get('overall_sentiment_label', ''),
+                            'ticker_sentiment_score': float(ticker_sent.get('ticker_sentiment_score', '0')),
+                            'ticker_relevance_score': float(ticker_sent.get('relevance_score', '0')),
+                            'sentiment': ticker_sent.get('ticker_sentiment_label', ''),
+                        })
+        results[ticker] = True
+    if all_news:
+        # Use the original DB upload logic for all news
+        _upload_company_news_alphavantage_rows(all_news)
+    return results
+
+def _format_time_db(time_str):
+    """Convert API time format (YYYYMMDDTHHMMSS or YYYYMMDDTHHMM) to DB timestamp string or original string if parsing fails."""
+    for fmt in ("%Y%m%dT%H%M%S", "%Y%m%dT%H%M"):
+        try:
+            dt = datetime.strptime(time_str, fmt)
+            return dt.strftime("%Y-%m-%d %H:%M:%S")
+        except (ValueError, TypeError):
+            continue
+    return time_str if time_str else None
+
+def _format_date_db(time_str):
+    for fmt in ("%Y%m%dT%H%M%S", "%Y%m%dT%H%M"):
+        try:
+            dt = datetime.strptime(time_str, fmt)
+            return dt.strftime("%Y-%m-%d")
+        except (ValueError, TypeError):
+            continue
+    # If already in YYYY-MM-DD format, return as is
+    if isinstance(time_str, str) and len(time_str) == 10 and time_str[4] == '-' and time_str[7] == '-':
+        return time_str
+    return None
+
+def _upload_company_news_alphavantage_rows(news_list):
+    # This is the original upload logic for a list of news dicts
+    if not news_list:
+        return False
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        fields = [
+            'ticker', 'title', 'url', 'time_published', 'date', 'source', 'author', 'summary',
+            'overall_sentiment_score', 'overall_sentiment_label', 'ticker_sentiment_score',
+            'ticker_relevance_score', 'sentiment'
+        ]
+        values = [
+            tuple(news.get(field) for field in fields)
+            for news in news_list
+        ]
+        sql = f"""
+        INSERT INTO company_news_alphavantage ({', '.join(fields)})
+        VALUES %s
+        ON CONFLICT (ticker, url) DO UPDATE SET
+            title = EXCLUDED.title,
+            time_published = EXCLUDED.time_published,
+            date = EXCLUDED.date,
+            source = EXCLUDED.source,
+            author = EXCLUDED.author,
+            summary = EXCLUDED.summary,
+            overall_sentiment_score = EXCLUDED.overall_sentiment_score,
+            overall_sentiment_label = EXCLUDED.overall_sentiment_label,
+            ticker_sentiment_score = EXCLUDED.ticker_sentiment_score,
+            ticker_relevance_score = EXCLUDED.ticker_relevance_score,
+            sentiment = EXCLUDED.sentiment,
+            updated_at = CURRENT_TIMESTAMP
+        """
+        execute_values(cursor, sql, values)
+        conn.commit()
+        return True
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Error uploading Alpha Vantage news: {e}")
+        return False
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conn' in locals():
+            conn.close()
 
 def get_db_connection():
     """Get a database connection using environment variables."""
