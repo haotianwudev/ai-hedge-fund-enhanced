@@ -189,7 +189,7 @@ def get_news_sentiment_multi(tickers: list[str], time_from: Optional[str] = None
         return {t: None for t in tickers}
 
     # Alpha Vantage allows up to 100 tickers per call, but limit to 5-10 for safety
-    batch_size = 10
+    batch_size = 1
     for i in range(0, len(tickers), batch_size):
         batch = tickers[i:i+batch_size]
         tickers_str = ",".join(batch)
@@ -202,7 +202,6 @@ def get_news_sentiment_multi(tickers: list[str], time_from: Optional[str] = None
             response = requests.get(url)
             response.raise_for_status()
             data = response.json()
-            print(f"News sentiment data: {data}")
             # Alpha Vantage returns all news in one 'feed', so split by ticker
             if data and 'feed' in data:
                 for ticker in batch:
