@@ -65,19 +65,19 @@ def log_llm_interaction(
         agent_name: Optional name of the agent making the request
         error: Optional exception if an error occurred
     """
-    if not save_logs_to_file:
-        return
-    
     agent_info = f" by {agent_name}" if agent_name else ""
     
     if error:
         llm_logger.error(f"LLM Error with {model_provider} {model_name}{agent_info}: {error}")
         return
     
-    # Log full content with newlines
+    # Always log full interaction details to console
     llm_logger.info(f"LLM Request to {model_provider} {model_name}{agent_info}")
     llm_logger.info(f"Full Prompt:\n{str(prompt)}\n")
-    llm_logger.info(f"Full Response:\n{str(response)}\n")
+    
+    # Also log to file if saving logs
+    if save_logs_to_file:
+        llm_logger.info(f"Full Response:\n{str(response)}\n")
 
 def log_portfolio_error(error_message: str, ticker: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
     """Log portfolio management errors
