@@ -4,6 +4,7 @@ from utils.progress import progress
 import json
 
 from tools.financial_metrics_service import get_financial_metrics
+from utils.financial_ratios import calculate_debt_to_equity_ratio
 
 
 ##### Fundamental Agent #####
@@ -78,7 +79,19 @@ def fundamentals_agent(state: AgentState):
         progress.update_status("fundamentals_agent", ticker, "Analyzing financial health")
         # 3. Financial Health
         current_ratio = metrics.current_ratio
-        debt_to_equity = metrics.debt_to_equity
+        
+        # Calculate debt_to_equity using centralized utility function (gets latest data)
+        debt_to_equity = calculate_debt_to_equity_ratio(ticker)
+        
+        if state["metadata"].get("show_reasoning", False):
+            fallback_value = metrics.debt_to_equity
+            if debt_to_equity is not None and fallback_value is not None:
+                print(f"[{ticker}] Using utility D/E: {debt_to_equity:.2f} (vs financial_metrics: {fallback_value:.2f})")
+            elif debt_to_equity is not None:
+                print(f"[{ticker}] Using utility D/E: {debt_to_equity:.2f}")
+            else:
+                print(f"[{ticker}] D/E calculation failed, fallback not available")
+        
         free_cash_flow_per_share = metrics.free_cash_flow_per_share
         earnings_per_share = metrics.earnings_per_share
 

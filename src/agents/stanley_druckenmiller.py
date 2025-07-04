@@ -1,5 +1,6 @@
 from graph.state import AgentState, show_agent_reasoning
 from tools.financial_metrics_service import get_financial_metrics
+from utils.financial_ratios import calculate_debt_to_equity_ratio
 from tools.line_items_service import search_line_items
 from tools.insider_trades_service import get_insider_trades
 from tools.company_news_service import get_company_news
@@ -101,7 +102,7 @@ def stanley_druckenmiller_agent(state: AgentState):
         insider_activity = analyze_insider_activity(insider_trades)
 
         progress.update_status("stanley_druckenmiller_agent", ticker, "Analyzing risk-reward")
-        risk_reward_analysis = analyze_risk_reward(financial_line_items, prices)
+        risk_reward_analysis = analyze_risk_reward(financial_line_items, prices, ticker, end_date)
 
         progress.update_status("stanley_druckenmiller_agent", ticker, "Performing Druckenmiller-style valuation")
         valuation_analysis = analyze_druckenmiller_valuation(financial_line_items, market_cap)
@@ -345,7 +346,7 @@ def analyze_sentiment(news_items: list) -> dict:
     return {"score": score, "details": "; ".join(details)}
 
 
-def analyze_risk_reward(financial_line_items: list, prices: list) -> dict:
+def analyze_risk_reward(financial_line_items: list, prices: list, ticker: str = None, end_date: str = None) -> dict:
     """
     Assesses risk via:
       - Debt-to-Equity
@@ -361,26 +362,44 @@ def analyze_risk_reward(financial_line_items: list, prices: list) -> dict:
     #
     # 1. Debt-to-Equity
     #
-    debt_values = [fi.total_debt for fi in financial_line_items if fi.total_debt is not None]
-    equity_values = [fi.shareholders_equity for fi in financial_line_items if fi.shareholders_equity is not None]
-
-    if debt_values and equity_values and len(debt_values) == len(equity_values) and len(debt_values) > 0:
-        recent_debt = debt_values[0]
-        recent_equity = equity_values[0] if equity_values[0] else 1e-9
-        de_ratio = recent_debt / recent_equity
-        if de_ratio < 0.3:
-            raw_score += 3
-            details.append(f"Low debt-to-equity: {de_ratio:.2f}")
-        elif de_ratio < 0.7:
-            raw_score += 2
-            details.append(f"Moderate debt-to-equity: {de_ratio:.2f}")
-        elif de_ratio < 1.5:
-            raw_score += 1
-            details.append(f"Somewhat high debt-to-equity: {de_ratio:.2f}")
+    if ticker:
+        de_ratio = calculate_debt_to_equity_ratio(ticker)  # Always use utility function
+        if de_ratio is not None:
+            if de_ratio < 0.3:
+                raw_score += 3
+                details.append(f"Low debt-to-equity: {de_ratio:.2f}")
+            elif de_ratio < 0.7:
+                raw_score += 2
+                details.append(f"Moderate debt-to-equity: {de_ratio:.2f}")
+            elif de_ratio < 1.5:
+                raw_score += 1
+                details.append(f"Somewhat high debt-to-equity: {de_ratio:.2f}")
+            else:
+                details.append(f"High debt-to-equity: {de_ratio:.2f}")
         else:
-            details.append(f"High debt-to-equity: {de_ratio:.2f}")
+            details.append("No debt/equity data available.")
     else:
-        details.append("No consistent debt/equity data available.")
+        # Fallback to manual calculation if ticker/end_date not provided
+        debt_values = [fi.total_debt for fi in financial_line_items if fi.total_debt is not None]
+        equity_values = [fi.shareholders_equity for fi in financial_line_items if fi.shareholders_equity is not None]
+
+        if debt_values and equity_values and len(debt_values) == len(equity_values) and len(debt_values) > 0:
+            recent_debt = debt_values[0]
+            recent_equity = equity_values[0] if equity_values[0] else 1e-9
+            de_ratio = recent_debt / recent_equity
+            if de_ratio < 0.3:
+                raw_score += 3
+                details.append(f"Low debt-to-equity: {de_ratio:.2f}")
+            elif de_ratio < 0.7:
+                raw_score += 2
+                details.append(f"Moderate debt-to-equity: {de_ratio:.2f}")
+            elif de_ratio < 1.5:
+                raw_score += 1
+                details.append(f"Somewhat high debt-to-equity: {de_ratio:.2f}")
+            else:
+                details.append(f"High debt-to-equity: {de_ratio:.2f}")
+        else:
+            details.append("No consistent debt/equity data available.")
 
     #
     # 2. Price Volatility

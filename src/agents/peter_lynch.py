@@ -1,5 +1,6 @@
 from graph.state import AgentState, show_agent_reasoning
 from tools.financial_metrics_service import get_financial_metrics
+from utils.financial_ratios import calculate_debt_to_equity_ratio
 from tools.line_items_service import search_line_items
 from tools.insider_trades_service import get_insider_trades
 from tools.company_news_service import get_company_news
@@ -97,7 +98,7 @@ def peter_lynch_agent(state: AgentState):
         growth_analysis = analyze_lynch_growth(financial_line_items)
 
         progress.update_status("peter_lynch_agent", ticker, "Analyzing fundamentals")
-        fundamentals_analysis = analyze_lynch_fundamentals(financial_line_items)
+        fundamentals_analysis = analyze_lynch_fundamentals(financial_line_items, ticker, end_date)
 
         progress.update_status("peter_lynch_agent", ticker, "Analyzing valuation (focus on PEG)")
         valuation_analysis = analyze_lynch_valuation(financial_line_items, market_cap)
@@ -233,7 +234,7 @@ def analyze_lynch_growth(financial_line_items: list) -> dict:
     return {"score": final_score, "details": "; ".join(details)}
 
 
-def analyze_lynch_fundamentals(financial_line_items: list) -> dict:
+def analyze_lynch_fundamentals(financial_line_items: list, ticker: str = None, end_date: str = None) -> dict:
     """
     Evaluate basic fundamentals:
       - Debt/Equity
@@ -248,22 +249,37 @@ def analyze_lynch_fundamentals(financial_line_items: list) -> dict:
     raw_score = 0  # We'll accumulate up to 6 points, then scale to 0–10
 
     # 1) Debt-to-Equity
-    debt_values = [fi.total_debt for fi in financial_line_items if fi.total_debt is not None]
-    eq_values = [fi.shareholders_equity for fi in financial_line_items if fi.shareholders_equity is not None]
-    if debt_values and eq_values and len(debt_values) == len(eq_values) and len(debt_values) > 0:
-        recent_debt = debt_values[0]
-        recent_equity = eq_values[0] if eq_values[0] else 1e-9
-        de_ratio = recent_debt / recent_equity
-        if de_ratio < 0.5:
-            raw_score += 2
-            details.append(f"Low debt-to-equity: {de_ratio:.2f}")
-        elif de_ratio < 1.0:
-            raw_score += 1
-            details.append(f"Moderate debt-to-equity: {de_ratio:.2f}")
+    if ticker:
+        de_ratio = calculate_debt_to_equity_ratio(ticker)  # Always use utility function
+        if de_ratio is not None:
+            if de_ratio < 0.5:
+                raw_score += 2
+                details.append(f"Low debt-to-equity: {de_ratio:.2f}")
+            elif de_ratio < 1.0:
+                raw_score += 1
+                details.append(f"Moderate debt-to-equity: {de_ratio:.2f}")
+            else:
+                details.append(f"High debt-to-equity: {de_ratio:.2f}")
         else:
-            details.append(f"High debt-to-equity: {de_ratio:.2f}")
+            details.append("No debt/equity data available.")
     else:
-        details.append("No consistent debt/equity data available.")
+        # Fallback to manual calculation if ticker/end_date not provided
+        debt_values = [fi.total_debt for fi in financial_line_items if fi.total_debt is not None]
+        eq_values = [fi.shareholders_equity for fi in financial_line_items if fi.shareholders_equity is not None]
+        if debt_values and eq_values and len(debt_values) == len(eq_values) and len(debt_values) > 0:
+            recent_debt = debt_values[0]
+            recent_equity = eq_values[0] if eq_values[0] else 1e-9
+            de_ratio = recent_debt / recent_equity
+            if de_ratio < 0.5:
+                raw_score += 2
+                details.append(f"Low debt-to-equity: {de_ratio:.2f}")
+            elif de_ratio < 1.0:
+                raw_score += 1
+                details.append(f"Moderate debt-to-equity: {de_ratio:.2f}")
+            else:
+                details.append(f"High debt-to-equity: {de_ratio:.2f}")
+        else:
+            details.append("No consistent debt/equity data available.")
 
     # 2) Operating Margin
     om_values = [fi.operating_margin for fi in financial_line_items if fi.operating_margin is not None]

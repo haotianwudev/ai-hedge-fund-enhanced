@@ -1,5 +1,6 @@
 from graph.state import AgentState, show_agent_reasoning
 from tools.financial_metrics_service import get_financial_metrics
+from utils.financial_ratios import calculate_debt_to_equity_ratio
 from tools.line_items_service import search_line_items
 from tools.insider_trades_service import get_insider_trades
 from tools.company_news_service import get_company_news
@@ -95,7 +96,7 @@ def phil_fisher_agent(state: AgentState):
         margins_stability = analyze_margins_stability(financial_line_items)
 
         progress.update_status("phil_fisher_agent", ticker, "Analyzing management efficiency & leverage")
-        mgmt_efficiency = analyze_management_efficiency_leverage(financial_line_items)
+        mgmt_efficiency = analyze_management_efficiency_leverage(financial_line_items, ticker, end_date)
 
         progress.update_status("phil_fisher_agent", ticker, "Analyzing valuation (Fisher style)")
         fisher_valuation = analyze_fisher_valuation(financial_line_items, market_cap)
@@ -327,7 +328,7 @@ def analyze_margins_stability(financial_line_items: list) -> dict:
     return {"score": final_score, "details": "; ".join(details)}
 
 
-def analyze_management_efficiency_leverage(financial_line_items: list) -> dict:
+def analyze_management_efficiency_leverage(financial_line_items: list, ticker: str = None, end_date: str = None) -> dict:
     """
     Evaluate management efficiency & leverage:
       - Return on Equity (ROE)
@@ -368,21 +369,36 @@ def analyze_management_efficiency_leverage(financial_line_items: list) -> dict:
         details.append("Insufficient data for ROE calculation")
 
     # 2. Debt-to-Equity
-    debt_values = [fi.total_debt for fi in financial_line_items if fi.total_debt is not None]
-    if debt_values and eq_values and len(debt_values) == len(eq_values):
-        recent_debt = debt_values[0]
-        recent_equity = eq_values[0] if eq_values[0] else 1e-9
-        dte = recent_debt / recent_equity
-        if dte < 0.3:
-            raw_score += 2
-            details.append(f"Low debt-to-equity: {dte:.2f}")
-        elif dte < 1.0:
-            raw_score += 1
-            details.append(f"Manageable debt-to-equity: {dte:.2f}")
+    if ticker:
+        dte = calculate_debt_to_equity_ratio(ticker)  # Always use utility function
+        if dte is not None:
+            if dte < 0.3:
+                raw_score += 2
+                details.append(f"Low debt-to-equity: {dte:.2f}")
+            elif dte < 1.0:
+                raw_score += 1
+                details.append(f"Manageable debt-to-equity: {dte:.2f}")
+            else:
+                details.append(f"High debt-to-equity: {dte:.2f}")
         else:
-            details.append(f"High debt-to-equity: {dte:.2f}")
+            details.append("No debt/equity data available")
     else:
-        details.append("Insufficient data for debt/equity analysis")
+        # Fallback to manual calculation if ticker/end_date not provided
+        debt_values = [fi.total_debt for fi in financial_line_items if fi.total_debt is not None]
+        if debt_values and eq_values and len(debt_values) == len(eq_values):
+            recent_debt = debt_values[0]
+            recent_equity = eq_values[0] if eq_values[0] else 1e-9
+            dte = recent_debt / recent_equity
+            if dte < 0.3:
+                raw_score += 2
+                details.append(f"Low debt-to-equity: {dte:.2f}")
+            elif dte < 1.0:
+                raw_score += 1
+                details.append(f"Manageable debt-to-equity: {dte:.2f}")
+            else:
+                details.append(f"High debt-to-equity: {dte:.2f}")
+        else:
+            details.append("Insufficient data for debt/equity analysis")
 
     # 3. FCF Consistency
     fcf_values = [fi.free_cash_flow for fi in financial_line_items if fi.free_cash_flow is not None]

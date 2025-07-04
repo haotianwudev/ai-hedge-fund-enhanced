@@ -1,5 +1,6 @@
 from graph.state import AgentState, show_agent_reasoning
 from tools.financial_metrics_service import get_financial_metrics
+from utils.financial_ratios import calculate_debt_to_equity_ratio
 from tools.line_items_service import search_line_items
 from tools.insider_trades_service import get_insider_trades
 from tools.company_news_service import get_company_news
@@ -92,7 +93,7 @@ def charlie_munger_agent(state: AgentState):
         moat_analysis = analyze_moat_strength(metrics, financial_line_items)
         
         progress.update_status("charlie_munger_agent", ticker, "Analyzing management quality")
-        management_analysis = analyze_management_quality(financial_line_items, insider_trades)
+        management_analysis = analyze_management_quality(financial_line_items, insider_trades, ticker, end_date)
         
         progress.update_status("charlie_munger_agent", ticker, "Analyzing business predictability")
         predictability_analysis = analyze_predictability(financial_line_items)
@@ -272,7 +273,7 @@ def analyze_moat_strength(metrics: list, financial_line_items: list) -> dict:
     }
 
 
-def analyze_management_quality(financial_line_items: list, insider_trades: list) -> dict:
+def analyze_management_quality(financial_line_items: list, insider_trades: list, ticker: str = None, end_date: str = None) -> dict:
     """
     Evaluate management quality using Munger's criteria:
     - Capital allocation wisdom
@@ -324,29 +325,47 @@ def analyze_management_quality(financial_line_items: list, insider_trades: list)
         details.append("Missing FCF or Net Income data")
     
     # 2. Debt management - Munger is cautious about debt
-    debt_values = [item.total_debt for item in financial_line_items 
-                  if hasattr(item, 'total_debt') and item.total_debt is not None]
-    
-    equity_values = [item.shareholders_equity for item in financial_line_items 
-                    if hasattr(item, 'shareholders_equity') and item.shareholders_equity is not None]
-    
-    if debt_values and equity_values and len(debt_values) == len(equity_values):
-        # Calculate D/E ratio for most recent period
-        recent_de_ratio = debt_values[0] / equity_values[0] if equity_values[0] > 0 else float('inf')
-        
-        if recent_de_ratio < 0.3:  # Very low debt
-            score += 3
-            details.append(f"Conservative debt management: D/E ratio of {recent_de_ratio:.2f}")
-        elif recent_de_ratio < 0.7:  # Moderate debt
-            score += 2
-            details.append(f"Prudent debt management: D/E ratio of {recent_de_ratio:.2f}")
-        elif recent_de_ratio < 1.5:  # Higher but still reasonable debt
-            score += 1
-            details.append(f"Moderate debt level: D/E ratio of {recent_de_ratio:.2f}")
+    if ticker:
+        recent_de_ratio = calculate_debt_to_equity_ratio(ticker)  # Always use utility function
+        if recent_de_ratio is not None:
+            if recent_de_ratio < 0.3:  # Very low debt
+                score += 3
+                details.append(f"Conservative debt management: D/E ratio of {recent_de_ratio:.2f}")
+            elif recent_de_ratio < 0.7:  # Moderate debt
+                score += 2
+                details.append(f"Prudent debt management: D/E ratio of {recent_de_ratio:.2f}")
+            elif recent_de_ratio < 1.5:  # Higher but still reasonable debt
+                score += 1
+                details.append(f"Moderate debt level: D/E ratio of {recent_de_ratio:.2f}")
+            else:
+                details.append(f"High debt level: D/E ratio of {recent_de_ratio:.2f}")
         else:
-            details.append(f"High debt level: D/E ratio of {recent_de_ratio:.2f}")
+            details.append("Missing debt or equity data")
     else:
-        details.append("Missing debt or equity data")
+        # Fallback to manual calculation if ticker/end_date not provided
+        debt_values = [item.total_debt for item in financial_line_items 
+                      if hasattr(item, 'total_debt') and item.total_debt is not None]
+        
+        equity_values = [item.shareholders_equity for item in financial_line_items 
+                        if hasattr(item, 'shareholders_equity') and item.shareholders_equity is not None]
+        
+        if debt_values and equity_values and len(debt_values) == len(equity_values):
+            # Calculate D/E ratio for most recent period
+            recent_de_ratio = debt_values[0] / equity_values[0] if equity_values[0] > 0 else float('inf')
+            
+            if recent_de_ratio < 0.3:  # Very low debt
+                score += 3
+                details.append(f"Conservative debt management: D/E ratio of {recent_de_ratio:.2f}")
+            elif recent_de_ratio < 0.7:  # Moderate debt
+                score += 2
+                details.append(f"Prudent debt management: D/E ratio of {recent_de_ratio:.2f}")
+            elif recent_de_ratio < 1.5:  # Higher but still reasonable debt
+                score += 1
+                details.append(f"Moderate debt level: D/E ratio of {recent_de_ratio:.2f}")
+            else:
+                details.append(f"High debt level: D/E ratio of {recent_de_ratio:.2f}")
+        else:
+            details.append("Missing debt or equity data")
     
     # 3. Cash management efficiency - Munger values appropriate cash levels
     cash_values = [item.cash_and_equivalents for item in financial_line_items

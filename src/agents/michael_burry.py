@@ -13,6 +13,7 @@ from tools.company_news_service import get_company_news
 from tools.financial_metrics_service import get_financial_metrics
 from tools.insider_trades_service import get_insider_trades
 from tools.line_items_service import search_line_items
+from utils.financial_ratios import calculate_debt_to_equity_ratio
 from tools.company_facts_service import get_market_cap
 from utils.llm import call_llm
 from utils.progress import progress
@@ -100,7 +101,7 @@ def michael_burry_agent(state: AgentState):  # noqa: C901  (complexity is fine h
         value_analysis = _analyze_value(metrics, line_items, market_cap)
 
         progress.update_status("michael_burry_agent", ticker, "Analyzing balance sheet")
-        balance_sheet_analysis = _analyze_balance_sheet(metrics, line_items)
+        balance_sheet_analysis = _analyze_balance_sheet(metrics, line_items, ticker, end_date)
 
         progress.update_status("michael_burry_agent", ticker, "Analyzing insider activity")
         insider_analysis = _analyze_insider_activity(insider_trades)
@@ -234,7 +235,7 @@ def _analyze_value(metrics, line_items, market_cap):
 
 # ----- Balance sheet --------------------------------------------------------
 
-def _analyze_balance_sheet(metrics, line_items):
+def _analyze_balance_sheet(metrics, line_items, ticker: str = None, end_date: str = None):
     """Leverage and liquidity checks."""
 
     max_score = 3
@@ -244,7 +245,12 @@ def _analyze_balance_sheet(metrics, line_items):
     latest_metrics = metrics[0] if metrics else None
     latest_item = _latest_line_item(line_items)
 
-    debt_to_equity = getattr(latest_metrics, "debt_to_equity", None) if latest_metrics else None
+    # Calculate debt_to_equity using centralized utility function (gets latest data)
+    if ticker:
+        debt_to_equity = calculate_debt_to_equity_ratio(ticker)  # Always use utility function
+    else:
+        debt_to_equity = getattr(latest_metrics, "debt_to_equity", None) if latest_metrics else None
+    
     if debt_to_equity is not None:
         if debt_to_equity < 0.5:
             score += 2

@@ -6,6 +6,7 @@ import json
 from typing_extensions import Literal
 from tools.financial_metrics_service import get_financial_metrics
 from tools.line_items_service import search_line_items
+from utils.financial_ratios import calculate_debt_to_equity_ratio
 from tools.company_facts_service import get_market_cap
 from utils.llm import call_llm
 from utils.progress import progress
@@ -54,7 +55,7 @@ def warren_buffett_agent(state: AgentState):
 
         progress.update_status("warren_buffett_agent", ticker, "Analyzing fundamentals")
         # Analyze fundamentals
-        fundamental_analysis = analyze_fundamentals(metrics)
+        fundamental_analysis = analyze_fundamentals(metrics, ticker, end_date)
 
         progress.update_status("warren_buffett_agent", ticker, "Analyzing consistency")
         consistency_analysis = analyze_consistency(financial_line_items)
@@ -136,7 +137,7 @@ def warren_buffett_agent(state: AgentState):
     return {"messages": [message], "data": state["data"]}
 
 
-def analyze_fundamentals(metrics: list) -> dict[str, any]:
+def analyze_fundamentals(metrics: list, ticker: str = None, end_date: str = None) -> dict[str, any]:
     """Analyze company fundamentals based on Buffett's criteria."""
     if not metrics:
         return {"score": 0, "details": "Insufficient fundamental data"}
@@ -155,12 +156,16 @@ def analyze_fundamentals(metrics: list) -> dict[str, any]:
     else:
         reasoning.append("ROE data not available")
 
-    # Check Debt to Equity
-    if latest_metrics.debt_to_equity and latest_metrics.debt_to_equity < 0.5:
+    # Check Debt to Equity - use centralized utility function (gets latest data)
+    if ticker:
+        debt_to_equity = calculate_debt_to_equity_ratio(ticker)  # Always use utility function
+    else:
+        debt_to_equity = latest_metrics.debt_to_equity if latest_metrics else None
+    if debt_to_equity and debt_to_equity < 0.5:
         score += 2
         reasoning.append("Conservative debt levels")
-    elif latest_metrics.debt_to_equity:
-        reasoning.append(f"High debt to equity ratio of {latest_metrics.debt_to_equity:.1f}")
+    elif debt_to_equity:
+        reasoning.append(f"High debt to equity ratio of {debt_to_equity:.1f}")
     else:
         reasoning.append("Debt to equity data not available")
 
