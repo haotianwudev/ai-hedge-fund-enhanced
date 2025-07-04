@@ -225,11 +225,15 @@ def calculate_momentum_signals(prices_df):
     """
     Multi-factor momentum strategy
     """
-    # Price momentum
-    returns = prices_df["close"].pct_change()
-    mom_1m = returns.rolling(21).sum()
-    mom_3m = returns.rolling(63).sum()
-    mom_6m = returns.rolling(126).sum()
+    # Price momentum - use proper total returns instead of sum of daily returns
+    # Get the closing prices for momentum calculation
+    close_prices = prices_df["close"]
+    
+    # Calculate momentum as total return over the period
+    # Using lookback from the most recent price to avoid index issues
+    mom_1m = (close_prices.iloc[-1] / close_prices.iloc[-21] - 1) if len(close_prices) >= 21 else 0
+    mom_3m = (close_prices.iloc[-1] / close_prices.iloc[-63] - 1) if len(close_prices) >= 63 else 0
+    mom_6m = (close_prices.iloc[-1] / close_prices.iloc[-126] - 1) if len(close_prices) >= 126 else 0
 
     # Volume momentum
     volume_ma = prices_df["volume"].rolling(21).mean()
@@ -239,7 +243,7 @@ def calculate_momentum_signals(prices_df):
     # (would compare to market/sector in real implementation)
 
     # Calculate momentum score
-    momentum_score = (0.4 * mom_1m + 0.3 * mom_3m + 0.3 * mom_6m).iloc[-1]
+    momentum_score = (0.4 * mom_1m + 0.3 * mom_3m + 0.3 * mom_6m)
 
     # Volume confirmation
     volume_confirmation = volume_momentum.iloc[-1] > 1.0
@@ -258,9 +262,9 @@ def calculate_momentum_signals(prices_df):
         "signal": signal,
         "confidence": confidence,
         "metrics": {
-            "momentum_1m": float(mom_1m.iloc[-1]),
-            "momentum_3m": float(mom_3m.iloc[-1]),
-            "momentum_6m": float(mom_6m.iloc[-1]),
+            "momentum_1m": float(mom_1m),
+            "momentum_3m": float(mom_3m),
+            "momentum_6m": float(mom_6m),
             "volume_momentum": float(volume_momentum.iloc[-1]),
             "current_volume": float(prices_df["volume"].iloc[-1]),
             "volume_ma_21": float(volume_ma.iloc[-1]),

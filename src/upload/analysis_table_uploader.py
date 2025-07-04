@@ -29,12 +29,12 @@ from utils.progress import progress
 AGENT_LIST = [
     'warren_buffett',
     'charlie_munger', 
-    'phil_fisher',
+    # 'phil_fisher',
     'ben_graham',
-    'peter_lynch',
+    # 'peter_lynch',
     'cathie_wood',
-    'michael_burry',
-    'bill_ackman',
+    #'michael_burry',
+    #'bill_ackman',
     'stanley_druckenmiller',
     'fundamentals_analyst', 
     'valuation_analyst',
@@ -51,7 +51,7 @@ load_dotenv()
 init(autoreset=True)
 
 # Hardcoded parameters
-MODEL_NAME = "qwen3:8b"
+MODEL_NAME = "deepseek-r1:14b" #"qwen3:8b"
 MODEL_PROVIDER = ModelProvider.OLLAMA.value
 INITIAL_CASH = 100000.0
 MARGIN_REQUIREMENT = 0.0
